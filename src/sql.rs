@@ -58,7 +58,7 @@ pub fn init() -> Conn {
 
     let statement = "CREATE TABLE IF NOT EXISTS history (
             id INTEGER,
-            minutes FLOAT,
+            duration FLOAT,
             timestamp INTEGER,
             FOREIGN KEY (id) REFERENCES activities (id)
             )

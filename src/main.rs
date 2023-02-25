@@ -3,6 +3,7 @@ use rusqlite::Connection;
 
 use iced::widget::{Button, Column, Container, Slider};
 use iced::{Alignment, Color, Element, Length, Renderer, Sandbox, Settings};
+
 pub fn main() -> iced::Result {
     Counter::run(Settings::default())
 }
@@ -11,8 +12,11 @@ mod activity;
 mod history;
 mod pages;
 mod sql;
+mod utils;
 
 use crate::activity::Activity;
+use crate::pages::editpage::EditPage;
+use crate::pages::sessionpage::SessionPage;
 
 type Conn = rusqlite::Connection;
 type ActID = usize;
@@ -58,7 +62,7 @@ impl Counter {
 
         let button: iced::widget::button::Button<Message> =
             iced::widget::button(iced::widget::text::Text::new("@"))
-                .on_press(Message::MainEditActivity(activity.id));
+                .on_press(Message::MainNewSession(activity.id));
         let row = iced::Element::new(iced::widget::row![
             padding,
             left_button,
@@ -110,6 +114,7 @@ pub enum Message {
     MainInputChanged(String),
     MainAddActivity,
     MainEditActivity(ActID),
+    MainNewSession(ActID),
     MainGoUp(ActID),
     MainGoDown(ActID),
     MainGoLeft(ActID),
@@ -118,6 +123,9 @@ pub enum Message {
     EditDeleteActivity(ActID),
     EditGotoMain,
     EditInputChanged(String),
+
+    SessionInputChanged(String),
+    SessionAddSession,
 
     AddSession {
         id: ActID,
@@ -148,6 +156,13 @@ impl Sandbox for Counter {
             Page::Main => match message {
                 Message::MainEditActivity(id) => {
                     self.page = Page::Edit(EditPage::new(&self.conn, id))
+                }
+                Message::MainNewSession(id) => {
+                    let newpage = SessionPage {
+                        id,
+                        duration: String::new(),
+                    };
+                    self.page = Page::NewSession(newpage);
                 }
                 Message::MainInputChanged(x) => self.textboxval = x,
                 Message::MainAddActivity => {
@@ -196,6 +211,26 @@ impl Sandbox for Counter {
                     panic!("you forgot to add {:?} to this match arm", message)
                 }
             },
+
+            Page::NewSession(page) => match message {
+                Message::SessionAddSession => {
+                    page.new_session(&self.conn);
+                    self.page = Page::Main;
+                    self.refresh();
+                }
+
+                Message::SessionInputChanged(text) => {
+                    if text.is_empty() {
+                        page.duration = text;
+                    } else if let Ok(_) = text.parse::<f64>() {
+                        page.duration = text;
+                    }
+                }
+
+                _ => {
+                    panic!("you forgot to add {:?} to this match arm", message)
+                }
+            },
         }
     }
 
@@ -203,6 +238,7 @@ impl Sandbox for Counter {
         match &self.page {
             Page::Main => self.main_view(),
             Page::Edit(page) => page.view(),
+            Page::NewSession(page) => page.view(),
         }
     }
 }

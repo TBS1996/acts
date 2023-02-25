@@ -9,11 +9,11 @@ use iced::widget::{Button, Column, Container, Slider};
 use iced::{Alignment, Color, Element, Length, Renderer, Sandbox, Settings};
 
 pub struct EditPage {
-    activity: Activity,
+    pub activity: Activity,
 }
 
 impl EditPage {
-    fn new(conn: &Conn, id: ActID) -> Self {
+    pub fn new(conn: &Conn, id: ActID) -> Self {
         Self {
             activity: Activity::fetch_activity(conn, id).unwrap(),
         }
