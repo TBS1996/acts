@@ -274,7 +274,7 @@ impl Activity {
 
     pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {
         let total = crate::history::Session::total_time_all_activities(conn);
-        let time_spent = crate::history::Session::total_time_spent_from_activity(conn, id);
+        let time_spent = crate::history::Session::total_weighted_time_spent_from_activity(conn, id);
 
         let ratio = (time_spent.as_secs_f32() / 60. + 1.) / (total.as_secs_f32() / 60. + 1.);
 
