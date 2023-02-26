@@ -1,3 +1,5 @@
+use std::vec::IntoIter;
+
 use crate::sql;
 use crate::ActID;
 use crate::Conn;
@@ -30,24 +32,62 @@ impl std::convert::TryFrom<&rusqlite::Row<'_>> for Activity {
 impl Activity {
     const SELECT_QUERY: &str = "SELECT id, text, parent, assigned, position FROM activities";
 
+    /// Iterates over a vector of activities recursively and applies a closure to each of them.
+    pub fn activity_walker_dfs<F>(conn: &Conn, activities: &mut Vec<Activity>, f: &mut F)
+    where
+        F: FnMut(&Conn, &mut Activity),
+    {
+        fn recursion<F>(conn: &Conn, activity: &mut Activity, f: &mut F)
+        where
+            F: FnMut(&Conn, &mut Activity),
+        {
+            f(conn, activity); // This is where the magic happens.
+
+            for child in activity.children.iter_mut() {
+                recursion(conn, child, f);
+            }
+        }
+
+        for activity in activities {
+            recursion(conn, activity, f);
+        }
+    }
+
     fn query_id(id: ActID) -> String {
         format!("{} WHERE id = {}", Self::SELECT_QUERY, id)
     }
 
-    pub fn normalize_positions(conn: &Conn, parent: Option<ActID>) {
-        let children = Self::fetch_children(conn, parent);
+    pub fn normalize_positions(conn: &Conn) {
+        let mut activities = Activity::fetch_all_activities(conn);
 
-        for (idx, child) in children.iter().enumerate() {
+        let mut f = |conn: &Conn, activity: &mut Activity| {
+            for (idx, child) in activity.children.iter().enumerate() {
+                let statement = format!(
+                    "UPDATE activities SET position = {} WHERE id = {}",
+                    idx, child.id
+                );
+                sql::execute(conn, &statement).unwrap();
+            }
+        };
+
+        for (idx, child) in activities.iter().enumerate() {
             let statement = format!(
                 "UPDATE activities SET position = {} WHERE id = {}",
                 idx, child.id
             );
             sql::execute(conn, &statement).unwrap();
         }
+
+        Self::activity_walker_dfs(conn, &mut activities, &mut f);
     }
 
-    pub fn get_parent(conn: &Conn, id: ActID) -> Option<ActID> {
+    pub fn get_parent_index(conn: &Conn, id: ActID) -> Option<ActID> {
         Activity::fetch_activity(conn, id).unwrap().parent
+    }
+
+    pub fn get_parent(conn: &Conn, id: ActID) -> Option<Activity> {
+        let index = Activity::get_parent_index(conn, id)?;
+        Activity::fetch_activity(conn, index).ok()
     }
 
     pub fn get_position(conn: &Conn, id: ActID) -> usize {
@@ -93,11 +133,42 @@ impl Activity {
         };
 
         sql::execute(conn, &statement).unwrap();
-        Self::normalize_positions(conn, parent);
+        Self::normalize_positions(conn);
+    }
+
+    pub fn get_true_assigned(conn: &Conn, mut id: ActID) -> f32 {
+        let assigned = Activity::fetch_activity(conn, id).unwrap().assigned;
+        let mut multiply = 1.;
+
+        while let Some(parent) = Activity::get_parent(conn, id) {
+            multiply *= parent.assigned;
+            id = parent.id;
+        }
+
+        assigned * multiply
+    }
+
+    pub fn normalize_assignments(conn: &Conn, parent: Option<ActID>) {
+        let siblings = Self::fetch_children(conn, parent);
+
+        let mut total_assignment = 0.;
+
+        for sibling in &siblings {
+            total_assignment += sibling.assigned;
+        }
+
+        for sibling in siblings {
+            let new_assignment = sibling.assigned / total_assignment;
+            let statement = format!(
+                "UPDATE activities SET assigned = {} WHERE id = {}",
+                new_assignment, sibling.id
+            );
+            conn.execute(&statement, []).unwrap();
+        }
     }
 
     pub fn go_right(conn: &Conn, id: ActID) {
-        let parent = Self::get_parent(conn, id);
+        let parent = Self::get_parent_index(conn, id);
         let position = Activity::get_position(conn, id);
         let siblings = Self::fetch_children(conn, parent);
 
@@ -110,14 +181,15 @@ impl Activity {
     }
 
     pub fn go_left(conn: &Conn, id: ActID) {
-        let parent = Activity::get_parent(conn, id);
+        let parent = Activity::get_parent_index(conn, id);
         if let Some(parent) = parent {
-            let grandparent = Activity::get_parent(conn, parent);
+            let grandparent = Activity::get_parent_index(conn, parent);
             Self::set_parent(conn, id, grandparent);
         }
     }
 
     pub fn go_up(conn: &Conn, id: ActID) {
+        Activity::normalize_positions(conn);
         let activity = Activity::fetch_activity(conn, id).unwrap();
         let position = Self::get_position(conn, activity.id);
 
@@ -189,8 +261,26 @@ impl Activity {
             children: vec![],
         }
     }
-    pub fn display(&self) -> String {
-        format!("{} -> {}", self.text, self.priority)
+    pub fn display(&self, conn: &Conn) -> String {
+        let assigned = Activity::get_true_assigned(conn, self.id) * 100.;
+
+        format!(
+            "{} -> {}%. pri: {}",
+            self.text,
+            assigned,
+            Self::calculate_priority(conn, self.id)
+        )
+    }
+
+    pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {
+        let total = crate::history::Session::total_time_all_activities(conn);
+        let time_spent = crate::history::Session::total_time_spent_from_activity(conn, id);
+
+        let ratio = (time_spent.as_secs_f32() / 60. + 1.) / (total.as_secs_f32() / 60. + 1.);
+
+        dbg!(&total, &time_spent, &ratio);
+
+        1. / (ratio * Activity::get_true_assigned(conn, id))
     }
 
     fn push_child(child: Activity, activities: &mut Vec<Activity>, parent: Option<ActID>) {

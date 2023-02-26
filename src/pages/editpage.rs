@@ -2,11 +2,11 @@ use crate::activity::Activity;
 use crate::ActID;
 use crate::Conn;
 use crate::Message;
-use iced::widget::{button, column, text, text_input};
-use rusqlite::Connection;
+use iced::widget::{button, column, text_input};
 
-use iced::widget::{Button, Column, Container, Slider};
-use iced::{Alignment, Color, Element, Length, Renderer, Sandbox, Settings};
+
+
+use iced::{Alignment, Element, Renderer, Sandbox};
 
 pub struct EditPage {
     pub activity: Activity,

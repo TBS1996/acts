@@ -1,14 +1,9 @@
-use crate::activity::Activity;
 use crate::ActID;
 use crate::Conn;
 use crate::Message;
-use iced::widget::{button, column, text, text_input};
-use rusqlite::Connection;
+use iced::widget::{button, column, text_input};
 
-use iced::widget::{Button, Column, Container, Slider};
-use iced::{Alignment, Color, Element, Length, Renderer, Sandbox, Settings};
-
-use std::time::{SystemTime, UNIX_EPOCH};
+use iced::{Alignment, Element, Renderer, Sandbox};
 
 #[derive(Default)]
 pub struct SessionPage {
@@ -20,15 +15,13 @@ impl SessionPage {
     pub fn view(&self) -> Element<'static, Message> {
         let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
             text_input("hey", &self.duration, Message::SessionInputChanged)
+                .on_submit(Message::SessionAddSession)
                 .padding(20)
                 .size(30);
-        column![
-            text_input,
-            button("Add session").on_press(Message::SessionAddSession),
-        ]
-        .padding(20)
-        .align_items(Alignment::Center)
-        .into()
+        column![text_input,]
+            .padding(20)
+            .align_items(Alignment::Center)
+            .into()
     }
 
     pub fn new_session(&self, conn: &Conn) {

@@ -1,10 +1,10 @@
-use iced::widget::{button, column, text, text_input};
-use rusqlite::Connection;
+use iced::widget::{button, column, text_input};
 
-use iced::widget::{Button, Column, Container, Slider};
-use iced::{Alignment, Color, Element, Length, Renderer, Sandbox, Settings};
+use iced::widget::Column;
+use iced::{Alignment, Element, Renderer, Sandbox, Settings};
 
 pub fn main() -> iced::Result {
+    std::env::set_var("RUST_BACKTRACE", "1");
     Counter::run(Settings::default())
 }
 
@@ -37,12 +37,17 @@ pub enum Page {
 }
 
 impl Counter {
-    fn view_helper(activity: Activity, elms: &mut Vec<Element<'static, Message>>, depth: usize) {
+    fn view_helper(
+        &self,
+        activity: Activity,
+        elms: &mut Vec<Element<'static, Message>>,
+        depth: usize,
+    ) {
         let padding = std::iter::repeat(' ').take(depth * 6).collect::<String>();
 
         let padding = iced::Element::new(iced::widget::text::Text::new(padding));
 
-        let elm = iced::Element::new(iced::widget::text::Text::new(activity.display()));
+        let elm = iced::Element::new(iced::widget::text::Text::new(activity.display(&self.conn)));
 
         let right_button: iced::widget::button::Button<Message> =
             iced::widget::button(iced::widget::text::Text::new(">"))
@@ -63,6 +68,7 @@ impl Counter {
         let button: iced::widget::button::Button<Message> =
             iced::widget::button(iced::widget::text::Text::new("@"))
                 .on_press(Message::MainNewSession(activity.id));
+
         let row = iced::Element::new(iced::widget::row![
             padding,
             left_button,
@@ -75,14 +81,14 @@ impl Counter {
         elms.push(row);
 
         for activity in activity.children {
-            Self::view_helper(activity, elms, depth + 1);
+            self.view_helper(activity, elms, depth + 1);
         }
     }
 
     fn view_activities(&self) -> Vec<Element<'static, Message>> {
         let mut some_vec = Vec::new();
         for act in &self.activities {
-            Self::view_helper(act.clone(), &mut some_vec, 0);
+            self.view_helper(act.clone(), &mut some_vec, 0);
         }
         some_vec
     }
@@ -103,7 +109,23 @@ impl Counter {
         .into()
     }
 
+    fn normalize_stuff(&mut self) {
+        self.normalize_all_assignments();
+        Activity::normalize_positions(&self.conn);
+    }
+
+    fn normalize_all_assignments(&mut self) {
+        Activity::normalize_assignments(&self.conn, None);
+        let mut f = |conn: &Conn, activity: &mut Activity| {
+            Activity::normalize_assignments(conn, Some(activity.id));
+        };
+
+        let mut activities = Activity::fetch_all_activities(&self.conn);
+        Activity::activity_walker_dfs(&self.conn, &mut activities, &mut f)
+    }
+
     fn refresh(&mut self) {
+        self.normalize_stuff();
         self.activities = Activity::fetch_all_activities(&self.conn);
         self.textboxval = String::new();
     }
@@ -138,6 +160,7 @@ impl Sandbox for Counter {
 
     fn new() -> Self {
         let conn = sql::init();
+        Activity::normalize_assignments(&conn, None);
         let activities = Activity::fetch_all_activities(&conn);
         Self {
             conn,
@@ -193,10 +216,8 @@ impl Sandbox for Counter {
             },
             Page::Edit(editor) => match message {
                 Message::EditDeleteActivity(id) => {
-                    let parent = Activity::get_parent(&self.conn, id);
                     sql::delete_activity(&self.conn, id);
                     self.page = Page::Main;
-                    Activity::normalize_positions(&self.conn, parent);
                     self.refresh();
                 }
 
@@ -214,6 +235,11 @@ impl Sandbox for Counter {
 
             Page::NewSession(page) => match message {
                 Message::SessionAddSession => {
+                    if page.duration.is_empty() {
+                        self.page = Page::Main;
+                        self.refresh();
+                        return;
+                    }
                     page.new_session(&self.conn);
                     self.page = Page::Main;
                     self.refresh();
