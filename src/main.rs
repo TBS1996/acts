@@ -16,7 +16,6 @@ mod utils;
 
 use crate::activity::Activity;
 use crate::pages::editpage::EditPage;
-use crate::pages::sessionpage::SessionPage;
 
 type Conn = rusqlite::Connection;
 type ActID = usize;
@@ -33,10 +32,24 @@ pub enum Page {
     #[default]
     Main,
     Edit(EditPage),
-    NewSession(SessionPage),
 }
 
 impl Counter {
+    fn view_activities(&self) -> Vec<Element<'static, Message>> {
+        let acts = Self::view_by_priority(&self);
+
+        let mut wtf = vec![];
+
+        for act in acts {
+            let button: iced::widget::button::Button<Message> =
+                iced::widget::button(iced::widget::text::Text::new(act.display_flat(&self.conn)))
+                    .on_press(Message::MainEditActivity(act.id));
+            let row = iced::Element::new(iced::widget::row![button]);
+            wtf.push(row);
+        }
+        wtf
+    }
+
     fn view_helper(
         &self,
         activity: Activity,
@@ -65,17 +78,21 @@ impl Counter {
             iced::widget::button(iced::widget::text::Text::new("v"))
                 .on_press(Message::MainGoDown(activity.id));
 
-        let button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("@"))
+        let session_button: iced::widget::button::Button<Message> =
+            iced::widget::button(iced::widget::text::Text::new("Add session"))
                 .on_press(Message::MainNewSession(activity.id));
 
+        let edit_button: iced::widget::button::Button<Message> =
+            iced::widget::button(iced::widget::text::Text::new("Edit"))
+                .on_press(Message::MainEditActivity(activity.id));
         let row = iced::Element::new(iced::widget::row![
             padding,
             left_button,
             right_button,
             up_button,
             down_button,
-            button,
+            session_button,
+            edit_button,
             elm
         ]);
         elms.push(row);
@@ -85,6 +102,7 @@ impl Counter {
         }
     }
 
+    /*
     fn view_activities(&self) -> Vec<Element<'static, Message>> {
         let mut some_vec = Vec::new();
         for act in &self.activities {
@@ -92,16 +110,46 @@ impl Counter {
         }
         some_vec
     }
+    */
+
+    fn view_by_priority(&self) -> Vec<Activity> {
+        let mut activities = Activity::fetch_all_activities(&self.conn);
+        crate::Activity::assign_priorities(&self.conn, &mut activities);
+
+        fn recursive(leaves: &mut Vec<Activity>, activity: &mut Activity) {
+            if activity.children.is_empty() {
+                leaves.push(activity.clone());
+            } else {
+                for child in activity.children.iter_mut() {
+                    recursive(leaves, child);
+                }
+            }
+        }
+        let mut leaves = vec![];
+
+        for activity in activities.iter_mut() {
+            if activity.children.is_empty() {
+                leaves.push(activity.clone());
+            } else {
+                for child in activity.children.iter_mut() {
+                    recursive(&mut leaves, child);
+                }
+            }
+        }
+
+        leaves.sort_by_key(|leaf| std::cmp::Reverse((leaf.priority * 1000.) as u64));
+        leaves
+    }
 
     fn main_view(&self) -> Element<'static, Message> {
         let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
-            text_input("hey", &self.textboxval, Message::MainInputChanged)
+            text_input("Add activity", &self.textboxval, Message::MainInputChanged)
+                .on_submit(Message::MainAddActivity)
                 .padding(20)
                 .size(30);
-
         column![
             text_input,
-            button("Add activity").on_press(Message::MainAddActivity),
+            button("Refresh").on_press(Message::MainRefresh),
             Column::with_children(self.view_activities()),
         ]
         .padding(20)
@@ -134,9 +182,11 @@ impl Counter {
 #[derive(Debug, Clone)]
 pub enum Message {
     MainInputChanged(String),
+    MainAssigned(String),
     MainAddActivity,
     MainEditActivity(ActID),
     MainNewSession(ActID),
+    MainRefresh,
     MainGoUp(ActID),
     MainGoDown(ActID),
     MainGoLeft(ActID),
@@ -145,14 +195,9 @@ pub enum Message {
     EditDeleteActivity(ActID),
     EditGotoMain,
     EditInputChanged(String),
-
-    SessionInputChanged(String),
-    SessionAddSession,
-
-    AddSession {
-        id: ActID,
-        duration: std::time::Duration,
-    },
+    EditAssignInput(String),
+    EditSessionInput(String),
+    EditAddSession,
 }
 
 impl Sandbox for Counter {
@@ -180,14 +225,8 @@ impl Sandbox for Counter {
                 Message::MainEditActivity(id) => {
                     self.page = Page::Edit(EditPage::new(&self.conn, id))
                 }
-                Message::MainNewSession(id) => {
-                    let newpage = SessionPage {
-                        id,
-                        duration: String::new(),
-                    };
-                    self.page = Page::NewSession(newpage);
-                }
                 Message::MainInputChanged(x) => self.textboxval = x,
+
                 Message::MainAddActivity => {
                     let x: String = std::mem::take(&mut self.textboxval);
                     let activity = Activity::new(&self.conn, x);
@@ -210,6 +249,8 @@ impl Sandbox for Counter {
                     Activity::go_left(&self.conn, id);
                     self.refresh();
                 }
+                Message::MainRefresh => self.refresh(),
+
                 _ => {
                     panic!("you forgot to add {:?} to this match arm", message)
                 }
@@ -221,38 +262,53 @@ impl Sandbox for Counter {
                     self.refresh();
                 }
 
+                Message::EditAddSession => {
+                    editor.new_session(&self.conn);
+                    self.page = Page::Main;
+                    self.refresh();
+                }
+
+                Message::EditAssignInput(text) => {
+                    if text.is_empty() {
+                        editor.assigned = text;
+                    } else if let Ok(_) = text.parse::<f64>() {
+                        editor.assigned = text;
+                    }
+                }
+
                 Message::EditGotoMain => {
                     self.page = Page::Main;
                     self.refresh();
                 }
+
                 Message::EditInputChanged(text) => {
                     editor.activity.modify_text(text, &self.conn);
+                }
+                Message::EditSessionInput(text) => {
+                    if text.is_empty() {
+                        editor.session_duration = text;
+                    } else if let Ok(_) = text.parse::<f64>() {
+                        editor.session_duration = text;
+                    }
                 }
                 _ => {
                     panic!("you forgot to add {:?} to this match arm", message)
                 }
-            },
 
-            Page::NewSession(page) => match message {
-                Message::SessionAddSession => {
-                    if page.duration.is_empty() {
+                /*
+                },
+                Page::NewSession(page) => match message {
+                    Message::SessionAddSession => {
+                        if page.duration.is_empty() {
+                            self.page = Page::Main;
+                            self.refresh();
+                            return;
+                        }
+                        page.new_session(&self.conn);
                         self.page = Page::Main;
                         self.refresh();
-                        return;
                     }
-                    page.new_session(&self.conn);
-                    self.page = Page::Main;
-                    self.refresh();
-                }
-
-                Message::SessionInputChanged(text) => {
-                    if text.is_empty() {
-                        page.duration = text;
-                    } else if let Ok(_) = text.parse::<f64>() {
-                        page.duration = text;
-                    }
-                }
-
+                    */
                 _ => {
                     panic!("you forgot to add {:?} to this match arm", message)
                 }
@@ -264,7 +320,6 @@ impl Sandbox for Counter {
         match &self.page {
             Page::Main => self.main_view(),
             Page::Edit(page) => page.view(),
-            Page::NewSession(page) => page.view(),
         }
     }
 }

@@ -23,13 +23,4 @@ impl SessionPage {
             .align_items(Alignment::Center)
             .into()
     }
-
-    pub fn new_session(&self, conn: &Conn) {
-        let timestamp = crate::utils::current_unix().as_secs();
-        let duration = self.duration.parse::<f64>().unwrap();
-        let statement =
-            format!("INSERT INTO history (id, duration, timestamp) VALUES (?1, ?2, ?3)");
-        conn.execute(&statement, rusqlite::params![self.id, duration, timestamp])
-            .unwrap();
-    }
 }

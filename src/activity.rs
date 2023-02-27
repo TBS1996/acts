@@ -261,26 +261,39 @@ impl Activity {
             children: vec![],
         }
     }
-    pub fn display(&self, conn: &Conn) -> String {
-        let assigned = Activity::get_true_assigned(conn, self.id) * 100.;
 
+    pub fn display_flat(&self, conn: &Conn) -> String {
         format!(
-            "{} -> {}%. pri: {}",
+            "{}:  {}",
             self.text,
-            assigned,
             Self::calculate_priority(conn, self.id)
         )
     }
 
+    pub fn display(&self, conn: &Conn) -> String {
+        let assigned = Activity::get_true_assigned(conn, self.id) * 100.;
+
+        if self.children.is_empty() {
+            format!(
+                "{} -> {}%. pri: {}",
+                self.text,
+                assigned,
+                Self::calculate_priority(conn, self.id)
+            )
+        } else {
+            format!("{} -> {}%", self.text, assigned)
+        }
+    }
+
     pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {
-        let total = crate::history::Session::total_time_all_activities(conn);
+        let total = crate::history::Session::total_weighted_time_all_activities(conn);
         let time_spent = crate::history::Session::total_weighted_time_spent_from_activity(conn, id);
 
         let ratio = (time_spent.as_secs_f32() / 60. + 1.) / (total.as_secs_f32() / 60. + 1.);
 
         dbg!(&total, &time_spent, &ratio);
 
-        1. / (ratio * Activity::get_true_assigned(conn, id))
+        Activity::get_true_assigned(conn, id) / ratio
     }
 
     fn push_child(child: Activity, activities: &mut Vec<Activity>, parent: Option<ActID>) {
@@ -306,10 +319,17 @@ impl Activity {
         sql::query_row(conn, &statement, |row| Self::try_from(row)).unwrap()
     }
 
+    pub fn assign_priorities(conn: &Conn, activities: &mut Vec<Activity>) {
+        let mut f = |conn: &Conn, activity: &mut Activity| {
+            activity.priority = Self::calculate_priority(conn, activity.id);
+        };
+
+        Self::activity_walker_dfs(conn, activities, &mut f);
+    }
+
     pub fn fetch_all_activities(conn: &Conn) -> Vec<Activity> {
         let mut activities = vec![];
         Self::fetch_all_activities_helper(conn, &mut activities, None);
-        dbg!(&activities);
         activities
     }
 
