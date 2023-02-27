@@ -6,6 +6,7 @@ use iced::widget::{button, column, text_input};
 
 use iced::{Alignment, Element, Renderer, Sandbox};
 
+#[derive(Debug)]
 pub struct EditPage {
     pub activity: Activity,
     pub assigned: String,

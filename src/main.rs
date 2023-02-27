@@ -5,7 +5,19 @@ use iced::{Alignment, Element, Renderer, Sandbox, Settings};
 
 pub fn main() -> iced::Result {
     std::env::set_var("RUST_BACKTRACE", "1");
-    Counter::run(Settings::default())
+
+    let _guard =  sentry::init((
+    "https://54319a6197f6416598c508efdd682c0a:f721ba6b7dbe49359e016a2104953411@o4504644012736512.ingest.sentry.io/4504751752937472",
+    sentry::ClientOptions {
+        release: sentry::release_name!(),
+        traces_sample_rate: 1.0,
+        enable_profiling: true,
+        profiles_sample_rate: 1.0,
+        ..Default::default()
+    },
+));
+
+    App::run(Settings::default())
 }
 
 mod activity;
@@ -20,21 +32,22 @@ use crate::pages::editpage::EditPage;
 type Conn = rusqlite::Connection;
 type ActID = usize;
 
-pub struct Counter {
+#[derive(Debug)]
+pub struct App {
     conn: Conn,
     textboxval: String,
     activities: Vec<Activity>,
     page: Page,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub enum Page {
     #[default]
     Main,
     Edit(EditPage),
 }
 
-impl Counter {
+impl App {
     fn view_activities(&self) -> Vec<Element<'static, Message>> {
         let acts = Self::view_by_priority(&self);
 
@@ -200,7 +213,7 @@ pub enum Message {
     EditAddSession,
 }
 
-impl Sandbox for Counter {
+impl Sandbox for App {
     type Message = Message;
 
     fn new() -> Self {
