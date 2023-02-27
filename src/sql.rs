@@ -4,6 +4,11 @@ use crate::Conn;
 
 const PATH: &str = "mydb.db";
 
+pub enum TableNames {
+    Activities,
+    History,
+}
+
 pub fn get_card_qty(conn: &Conn) -> usize {
     let statement = "SELECT COUNT(*) FROM activities";
 

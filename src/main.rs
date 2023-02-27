@@ -79,7 +79,7 @@ impl App {
         elms: &mut Vec<Element<'static, Message>>,
         depth: usize,
     ) {
-        let padding = std::iter::repeat(' ').take(depth * 6).collect::<String>();
+        let padding = " ".repeat(depth * 6);
 
         let padding = iced::Element::new(iced::widget::text::Text::new(padding));
 
