@@ -70,13 +70,14 @@ pub fn init() -> Conn {
 
 pub fn new_activity(conn: &Conn, activity: &Activity) -> Result<(), rusqlite::Error> {
     let sibqty = get_kid_qty(conn, &activity.parent);
+    let assigned = if sibqty > 0 { 1. / (sibqty as f32) } else { 1. };
     conn.execute(
         "INSERT INTO activities (id, text, parent, assigned, position) VALUES (?1, ?2, ?3, ?4, ?5)",
         (
             &activity.id,
             &activity.text,
             &activity.parent,
-            &activity.assigned,
+            assigned,
             sibqty,
         ),
     )?;

@@ -47,6 +47,16 @@ pub enum Page {
     Edit(EditPage),
 }
 
+impl Page {
+    pub fn is_main(&self) -> bool {
+        matches!(self, Self::Main)
+    }
+
+    pub fn is_edit(&self) -> bool {
+        matches!(self, Self::Edit(_))
+    }
+}
+
 impl App {
     fn view_activities(&self) -> Vec<Element<'static, Message>> {
         let acts = Self::view_by_priority(&self);
@@ -163,7 +173,7 @@ impl App {
         column![
             text_input,
             button("Refresh").on_press(Message::MainRefresh),
-            Column::with_children(self.view_activities()),
+            Column::with_children(self.view_activities())
         ]
         .padding(20)
         .align_items(Alignment::Center)
@@ -245,6 +255,7 @@ impl Sandbox for App {
                     let activity = Activity::new(&self.conn, x);
                     sql::new_activity(&self.conn, &activity).unwrap();
                     self.activities.push(activity);
+                    self.refresh();
                 }
                 Message::MainGoUp(id) => {
                     Activity::go_up(&self.conn, id);
@@ -282,9 +293,7 @@ impl Sandbox for App {
                 }
 
                 Message::EditAssignInput(text) => {
-                    if text.is_empty() {
-                        editor.assigned = text;
-                    } else if let Ok(_) = text.parse::<f64>() {
+                    if text.is_empty() || text.parse::<f64>().is_ok() {
                         editor.assigned = text;
                     }
                 }
@@ -298,9 +307,7 @@ impl Sandbox for App {
                     editor.activity.modify_text(text, &self.conn);
                 }
                 Message::EditSessionInput(text) => {
-                    if text.is_empty() {
-                        editor.session_duration = text;
-                    } else if let Ok(_) = text.parse::<f64>() {
+                    if text.is_empty() || text.parse::<f64>().is_ok() {
                         editor.session_duration = text;
                     }
                 }

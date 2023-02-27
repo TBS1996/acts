@@ -23,7 +23,7 @@ impl EditPage {
     }
 
     fn maybe_add_session(&self) -> Message {
-        if let Ok(_) = self.session_duration.parse::<f64>() {
+        if self.session_duration.parse::<f64>().is_ok() {
             return Message::EditAddSession;
         }
         Message::EditGotoMain
@@ -40,14 +40,10 @@ impl EditPage {
         .size(30);
 
         let assigned_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
-            text_input(
-                "Assign time",
-                &self.activity.text,
-                Message::EditInputChanged,
-            )
-            .on_submit(Message::EditGotoMain)
-            .padding(20)
-            .size(30);
+            text_input("Assign time", &self.assigned, Message::EditAssignInput)
+                .on_submit(Message::EditGotoMain)
+                .padding(20)
+                .size(30);
 
         let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
             text_input("Edit name", &self.activity.text, Message::EditInputChanged)
@@ -71,7 +67,7 @@ impl EditPage {
         let timestamp = crate::utils::current_unix().as_secs();
         let duration = self.session_duration.parse::<f64>().unwrap();
         let statement =
-            format!("INSERT INTO history (id, duration, timestamp) VALUES (?1, ?2, ?3)");
+            "INSERT INTO history (id, duration, timestamp) VALUES (?1, ?2, ?3)".to_string();
         conn.execute(
             &statement,
             rusqlite::params![self.activity.id, duration, timestamp],
