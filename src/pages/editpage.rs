@@ -41,7 +41,7 @@ impl EditPage {
 
         let assigned_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
             text_input("Assign time", &self.assigned, Message::EditAssignInput)
-                .on_submit(Message::EditGotoMain)
+                .on_submit(Message::EditAddAssign)
                 .padding(20)
                 .size(30);
 

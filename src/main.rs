@@ -1,4 +1,5 @@
-use iced::widget::{button, column, text_input};
+use crate::pages::treeview::TreeView;
+use iced::widget::{button, column, row, text_input};
 
 use iced::widget::Column;
 use iced::{Alignment, Element, Renderer, Sandbox, Settings};
@@ -45,6 +46,7 @@ pub enum Page {
     #[default]
     Main,
     Edit(EditPage),
+    TreeView(TreeView),
 }
 
 impl Page {
@@ -72,68 +74,6 @@ impl App {
         }
         wtf
     }
-
-    fn view_helper(
-        &self,
-        activity: Activity,
-        elms: &mut Vec<Element<'static, Message>>,
-        depth: usize,
-    ) {
-        let padding = " ".repeat(depth * 6);
-
-        let padding = iced::Element::new(iced::widget::text::Text::new(padding));
-
-        let elm = iced::Element::new(iced::widget::text::Text::new(activity.display(&self.conn)));
-
-        let right_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new(">"))
-                .on_press(Message::MainGoRight(activity.id));
-
-        let left_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("<"))
-                .on_press(Message::MainGoLeft(activity.id));
-
-        let up_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("^"))
-                .on_press(Message::MainGoUp(activity.id));
-
-        let down_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("v"))
-                .on_press(Message::MainGoDown(activity.id));
-
-        let session_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("Add session"))
-                .on_press(Message::MainNewSession(activity.id));
-
-        let edit_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("Edit"))
-                .on_press(Message::MainEditActivity(activity.id));
-        let row = iced::Element::new(iced::widget::row![
-            padding,
-            left_button,
-            right_button,
-            up_button,
-            down_button,
-            session_button,
-            edit_button,
-            elm
-        ]);
-        elms.push(row);
-
-        for activity in activity.children {
-            self.view_helper(activity, elms, depth + 1);
-        }
-    }
-
-    /*
-    fn view_activities(&self) -> Vec<Element<'static, Message>> {
-        let mut some_vec = Vec::new();
-        for act in &self.activities {
-            self.view_helper(act.clone(), &mut some_vec, 0);
-        }
-        some_vec
-    }
-    */
 
     fn view_by_priority(&self) -> Vec<Activity> {
         let mut activities = Activity::fetch_all_activities(&self.conn);
@@ -170,9 +110,12 @@ impl App {
                 .on_submit(Message::MainAddActivity)
                 .padding(20)
                 .size(30);
+        let refresh_button = button("Refresh").on_press(Message::MainRefresh);
+        let treeview_button = button("view tree").on_press(Message::GoToTree);
+
         column![
             text_input,
-            button("Refresh").on_press(Message::MainRefresh),
+            row![refresh_button, treeview_button],
             Column::with_children(self.view_activities())
         ]
         .padding(20)
@@ -221,6 +164,9 @@ pub enum Message {
     EditAssignInput(String),
     EditSessionInput(String),
     EditAddSession,
+    EditAddAssign,
+
+    GoToTree,
 }
 
 impl Sandbox for App {
@@ -274,6 +220,7 @@ impl Sandbox for App {
                     self.refresh();
                 }
                 Message::MainRefresh => self.refresh(),
+                Message::GoToTree => self.page = Page::TreeView(TreeView::new(&self.conn)),
 
                 _ => {
                     panic!("you forgot to add {:?} to this match arm", message)
@@ -297,6 +244,17 @@ impl Sandbox for App {
                         editor.assigned = text;
                     }
                 }
+                Message::EditAddAssign => {
+                    if let Ok(num) = editor.assigned.parse::<f32>() {
+                        let num = num / 100.;
+                        assert!(num < 1. && num > 0.);
+                        let statement = format!(
+                            "UPDATE activities SET assigned = {} WHERE id = {}",
+                            num, editor.activity.id
+                        );
+                        self.conn.execute(&statement, []).unwrap();
+                    }
+                }
 
                 Message::EditGotoMain => {
                     self.page = Page::Main;
@@ -313,26 +271,22 @@ impl Sandbox for App {
                 }
                 _ => {
                     panic!("you forgot to add {:?} to this match arm", message)
-                }
-
-                /*
-                },
-                Page::NewSession(page) => match message {
-                    Message::SessionAddSession => {
-                        if page.duration.is_empty() {
-                            self.page = Page::Main;
-                            self.refresh();
-                            return;
-                        }
-                        page.new_session(&self.conn);
-                        self.page = Page::Main;
-                        self.refresh();
-                    }
-                    */
-                _ => {
-                    panic!("you forgot to add {:?} to this match arm", message)
-                }
+                } /*
+                  },
+                  Page::NewSession(page) => match message {
+                      Message::SessionAddSession => {
+                          if page.duration.is_empty() {
+                              self.page = Page::Main;
+                              self.refresh();
+                              return;
+                          }
+                          page.new_session(&self.conn);
+                          self.page = Page::Main;
+                          self.refresh();
+                      }
+                      */
             },
+            _ => {}
         }
     }
 
@@ -340,6 +294,7 @@ impl Sandbox for App {
         match &self.page {
             Page::Main => self.main_view(),
             Page::Edit(page) => page.view(),
+            Page::TreeView(page) => page.view_activities(&self.conn),
         }
     }
 }
