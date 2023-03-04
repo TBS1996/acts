@@ -22,6 +22,10 @@ impl EditPage {
         }
     }
 
+    pub fn refresh(&mut self, conn: &Conn) {
+        *self = Self::new(conn, self.activity.id)
+    }
+
     fn maybe_add_session(&self) -> Message {
         if self.session_duration.parse::<f64>().is_ok() {
             return Message::EditAddSession;

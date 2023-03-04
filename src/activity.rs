@@ -1,5 +1,3 @@
-
-
 use crate::sql;
 use crate::ActID;
 use crate::Conn;
@@ -125,10 +123,20 @@ impl Activity {
 
     pub fn set_parent(conn: &Conn, child: ActID, parent: Option<ActID>) {
         let statement = match parent {
-            Some(parent) => format!(
-                "UPDATE activities SET parent = {} WHERE id = {}",
-                parent, child
-            ),
+            Some(parent) => {
+                if parent == child {
+                    return;
+                }
+
+                if Activity::fetch_activity(conn, parent).unwrap().parent == Some(child) {
+                    return;
+                }
+
+                format!(
+                    "UPDATE activities SET parent = {} WHERE id = {}",
+                    parent, child
+                )
+            }
             None => format!("UPDATE activities SET parent = NULL WHERE id = {}", child),
         };
 
@@ -273,16 +281,7 @@ impl Activity {
     pub fn display(&self, conn: &Conn) -> String {
         let assigned = Activity::get_true_assigned(conn, self.id) * 100.;
 
-        if self.children.is_empty() {
-            format!(
-                "{} -> {}%. pri: {}",
-                self.text,
-                assigned,
-                Self::calculate_priority(conn, self.id)
-            )
-        } else {
-            format!("{} -> {}%", self.text, assigned)
-        }
+        format!("{} -> {:.1}%", self.text, assigned,)
     }
 
     pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {
@@ -331,6 +330,13 @@ impl Activity {
         let mut activities = vec![];
         Self::fetch_all_activities_helper(conn, &mut activities, None);
         activities
+    }
+
+    pub fn fetch_all_activities_flat(conn: &Conn) -> Vec<Activity> {
+        sql::query_map(conn, Activity::SELECT_QUERY, |row: &rusqlite::Row| {
+            Activity::try_from(row)
+        })
+        .unwrap()
     }
 
     fn fetch_all_activities_helper(

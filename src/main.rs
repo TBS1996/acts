@@ -3,6 +3,7 @@ use iced::widget::{button, column, pick_list, row, text_input};
 
 use iced::widget::Column;
 use iced::{Alignment, Element, Renderer, Sandbox, Settings};
+use pages::picker::Picker;
 
 pub fn main() -> iced::Result {
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -57,6 +58,14 @@ impl Page {
 
     pub fn is_edit(&self) -> bool {
         matches!(self, Self::Edit(_))
+    }
+
+    pub fn refresh(&mut self, conn: &Conn) {
+        match self {
+            Self::Main => {}
+            Self::Edit(editview) => editview.refresh(conn),
+            Self::TreeView(tree) => tree.refresh(conn),
+        }
     }
 }
 
@@ -143,6 +152,7 @@ impl App {
         self.normalize_stuff();
         self.activities = Activity::fetch_all_activities(&self.conn);
         self.textboxval = String::new();
+        self.page.refresh(&self.conn);
     }
 }
 
@@ -168,7 +178,8 @@ pub enum Message {
     EditAddAssign,
 
     GoToTree,
-    PickAct(ActID),
+    PickAct(Option<ActID>),
+    ChooseParent { child: ActID },
     GoBack,
 }
 
@@ -289,7 +300,25 @@ impl Sandbox for App {
                       }
                       */
             },
-            _ => {}
+            Page::TreeView(tree) => match (&tree.picker, message) {
+                (None, Message::GoBack) => {
+                    self.page = Page::Main;
+                    self.refresh();
+                }
+                (Some(_), Message::GoBack) => {
+                    tree.picker = None;
+                    self.refresh();
+                }
+                (Some(x), Message::PickAct(id)) => {
+                    Activity::set_parent(&self.conn, x.0, id);
+                    tree.picker = None;
+                    self.refresh();
+                }
+                (None, Message::ChooseParent { child }) => {
+                    tree.picker = Some((child, Picker::new(&self.conn)))
+                }
+                (_, _) => {}
+            },
         }
     }
 
