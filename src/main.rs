@@ -1,5 +1,5 @@
 use crate::pages::treeview::TreeView;
-use iced::widget::{button, column, row, text_input};
+use iced::widget::{button, column, pick_list, row, text_input};
 
 use iced::widget::Column;
 use iced::{Alignment, Element, Renderer, Sandbox, Settings};
@@ -7,17 +7,18 @@ use iced::{Alignment, Element, Renderer, Sandbox, Settings};
 pub fn main() -> iced::Result {
     std::env::set_var("RUST_BACKTRACE", "1");
 
-    let _guard =  sentry::init((
-    "https://54319a6197f6416598c508efdd682c0a:f721ba6b7dbe49359e016a2104953411@o4504644012736512.ingest.sentry.io/4504751752937472",
-    sentry::ClientOptions {
-        release: sentry::release_name!(),
-        traces_sample_rate: 1.0,
-        enable_profiling: true,
-        profiles_sample_rate: 1.0,
-        ..Default::default()
-    },
-));
-
+    /*
+        let _guard =  sentry::init((
+        "https://54319a6197f6416598c508efdd682c0a:f721ba6b7dbe49359e016a2104953411@o4504644012736512.ingest.sentry.io/4504751752937472",
+        sentry::ClientOptions {
+            release: sentry::release_name!(),
+            traces_sample_rate: 1.0,
+            enable_profiling: true,
+            profiles_sample_rate: 1.0,
+            ..Default::default()
+        },
+    ));
+    */
     App::run(Settings::default())
 }
 
@@ -167,6 +168,8 @@ pub enum Message {
     EditAddAssign,
 
     GoToTree,
+    PickAct(ActID),
+    GoBack,
 }
 
 impl Sandbox for App {
