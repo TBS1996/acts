@@ -55,7 +55,6 @@ pub fn init() -> Conn {
             text TEXT NOT NULL,
             parent INTEGER,
             assigned FLOAT NOT NULL,
-            position INTEGER,
             FOREIGN KEY (parent) REFERENCES activities (id)
             )
             ";
@@ -77,14 +76,8 @@ pub fn new_activity(conn: &Conn, activity: &Activity) -> Result<(), rusqlite::Er
     let sibqty = get_kid_qty(conn, &activity.parent);
     let assigned = if sibqty > 0 { 1. / (sibqty as f32) } else { 1. };
     conn.execute(
-        "INSERT INTO activities (id, text, parent, assigned, position) VALUES (?1, ?2, ?3, ?4, ?5)",
-        (
-            &activity.id,
-            &activity.text,
-            &activity.parent,
-            assigned,
-            sibqty,
-        ),
+        "INSERT INTO activities (id, text, parent, assigned) VALUES (?1, ?2, ?3, ?4)",
+        (&activity.id, &activity.text, &activity.parent, assigned),
     )?;
 
     Ok(())

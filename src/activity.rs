@@ -28,7 +28,7 @@ impl std::convert::TryFrom<&rusqlite::Row<'_>> for Activity {
 }
 
 impl Activity {
-    const SELECT_QUERY: &str = "SELECT id, text, parent, assigned, position FROM activities";
+    const SELECT_QUERY: &str = "SELECT id, text, parent, assigned FROM activities";
 
     /// Iterates over a vector of activities recursively and applies a closure to each of them.
     pub fn activity_walker_dfs<F>(conn: &Conn, activities: &mut Vec<Activity>, f: &mut F)
@@ -55,30 +55,6 @@ impl Activity {
         format!("{} WHERE id = {}", Self::SELECT_QUERY, id)
     }
 
-    pub fn normalize_positions(conn: &Conn) {
-        let mut activities = Activity::fetch_all_activities(conn);
-
-        let mut f = |conn: &Conn, activity: &mut Activity| {
-            for (idx, child) in activity.children.iter().enumerate() {
-                let statement = format!(
-                    "UPDATE activities SET position = {} WHERE id = {}",
-                    idx, child.id
-                );
-                sql::execute(conn, &statement).unwrap();
-            }
-        };
-
-        for (idx, child) in activities.iter().enumerate() {
-            let statement = format!(
-                "UPDATE activities SET position = {} WHERE id = {}",
-                idx, child.id
-            );
-            sql::execute(conn, &statement).unwrap();
-        }
-
-        Self::activity_walker_dfs(conn, &mut activities, &mut f);
-    }
-
     pub fn get_parent_index(conn: &Conn, id: ActID) -> Option<ActID> {
         Activity::fetch_activity(conn, id).unwrap().parent
     }
@@ -86,39 +62,6 @@ impl Activity {
     pub fn get_parent(conn: &Conn, id: ActID) -> Option<Activity> {
         let index = Activity::get_parent_index(conn, id)?;
         Activity::fetch_activity(conn, index).ok()
-    }
-
-    pub fn get_position(conn: &Conn, id: ActID) -> usize {
-        let statement = format!("SELECT position FROM activities WHERE id = {}", id);
-        sql::query_row(conn, &statement, |row| {
-            Ok(row.get::<usize, usize>(0).unwrap())
-        })
-        .unwrap()
-    }
-
-    pub fn go_down(conn: &Conn, id: ActID) {
-        let activity = Activity::fetch_activity(conn, id).unwrap();
-        let position = Self::get_position(conn, activity.id);
-
-        let siblings = Self::fetch_children(conn, activity.parent);
-
-        if position == siblings.len() - 1 {
-            return;
-        }
-
-        let statement = format!(
-            "UPDATE activities SET position = {} WHERE id = {}",
-            position + 1,
-            siblings[position].id
-        );
-        sql::execute(conn, &statement).unwrap();
-
-        let statement = format!(
-            "UPDATE activities SET position = {} WHERE id = {}",
-            position,
-            siblings[position + 1].id
-        );
-        sql::execute(conn, &statement).unwrap();
     }
 
     pub fn set_parent(conn: &Conn, child: ActID, parent: Option<ActID>) {
@@ -141,7 +84,6 @@ impl Activity {
         };
 
         sql::execute(conn, &statement).unwrap();
-        Self::normalize_positions(conn);
     }
 
     pub fn get_true_assigned(conn: &Conn, mut id: ActID) -> f32 {
@@ -175,53 +117,6 @@ impl Activity {
         }
     }
 
-    pub fn go_right(conn: &Conn, id: ActID) {
-        let parent = Self::get_parent_index(conn, id);
-        let position = Activity::get_position(conn, id);
-        let siblings = Self::fetch_children(conn, parent);
-
-        if position == siblings.len() - 1 {
-            return;
-        }
-
-        let new_parent = siblings[position + 1].id;
-        Self::set_parent(conn, id, Some(new_parent));
-    }
-
-    pub fn go_left(conn: &Conn, id: ActID) {
-        let parent = Activity::get_parent_index(conn, id);
-        if let Some(parent) = parent {
-            let grandparent = Activity::get_parent_index(conn, parent);
-            Self::set_parent(conn, id, grandparent);
-        }
-    }
-
-    pub fn go_up(conn: &Conn, id: ActID) {
-        Activity::normalize_positions(conn);
-        let activity = Activity::fetch_activity(conn, id).unwrap();
-        let position = Self::get_position(conn, activity.id);
-
-        if position == 0 {
-            return;
-        }
-
-        let siblings = Self::fetch_children(conn, activity.parent);
-
-        let statement = format!(
-            "UPDATE activities SET position = {} WHERE id = {}",
-            position - 1,
-            siblings[position].id
-        );
-        sql::execute(conn, &statement).unwrap();
-
-        let statement = format!(
-            "UPDATE activities SET position = {} WHERE id = {}",
-            position,
-            siblings[position - 1].id
-        );
-        sql::execute(conn, &statement).unwrap();
-    }
-
     /// Queries children, but not recursively.
     pub fn fetch_children(conn: &Conn, parent: Option<ActID>) -> Vec<Activity> {
         sql::query_map(conn, &Self::query_children(parent), |row| {
@@ -232,15 +127,8 @@ impl Activity {
 
     fn query_children(parent: Option<ActID>) -> String {
         match parent {
-            Some(id) => format!(
-                "{} WHERE parent = {} ORDER BY position",
-                Self::SELECT_QUERY,
-                id
-            ),
-            None => format!(
-                "{} WHERE parent IS NULL ORDER BY position",
-                Self::SELECT_QUERY
-            ),
+            Some(id) => format!("{} WHERE parent = {}", Self::SELECT_QUERY, id),
+            None => format!("{} WHERE parent IS NULL", Self::SELECT_QUERY),
         }
     }
 
@@ -272,9 +160,9 @@ impl Activity {
 
     pub fn display_flat(&self, conn: &Conn) -> String {
         format!(
-            "{}:  {}",
+            "{}:  {:.1}",
             self.text,
-            Self::calculate_priority(conn, self.id)
+            Self::calculate_priority(conn, self.id).powf(0.5)
         )
     }
 

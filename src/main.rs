@@ -135,7 +135,6 @@ impl App {
 
     fn normalize_stuff(&mut self) {
         self.normalize_all_assignments();
-        Activity::normalize_positions(&self.conn);
     }
 
     fn normalize_all_assignments(&mut self) {
@@ -164,10 +163,6 @@ pub enum Message {
     MainEditActivity(ActID),
     MainNewSession(ActID),
     MainRefresh,
-    MainGoUp(ActID),
-    MainGoDown(ActID),
-    MainGoLeft(ActID),
-    MainGoRight(ActID),
 
     EditDeleteActivity(ActID),
     EditGotoMain,
@@ -215,22 +210,6 @@ impl Sandbox for App {
                     let activity = Activity::new(&self.conn, x);
                     sql::new_activity(&self.conn, &activity).unwrap();
                     self.activities.push(activity);
-                    self.refresh();
-                }
-                Message::MainGoUp(id) => {
-                    Activity::go_up(&self.conn, id);
-                    self.refresh();
-                }
-                Message::MainGoDown(id) => {
-                    Activity::go_down(&self.conn, id);
-                    self.refresh();
-                }
-                Message::MainGoRight(id) => {
-                    Activity::go_right(&self.conn, id);
-                    self.refresh();
-                }
-                Message::MainGoLeft(id) => {
-                    Activity::go_left(&self.conn, id);
                     self.refresh();
                 }
                 Message::MainRefresh => self.refresh(),
