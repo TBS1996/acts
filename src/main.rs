@@ -2,8 +2,9 @@ use crate::pages::treeview::TreeView;
 use iced::widget::{button, column, pick_list, row, text_input};
 
 use iced::widget::Column;
-use iced::{Alignment, Element, Renderer, Sandbox, Settings};
+use iced::{executor, Alignment, Application, Command, Element, Renderer, Sandbox, Settings};
 use pages::picker::Picker;
+use pages::ValueGetter;
 
 pub fn main() -> iced::Result {
     std::env::set_var("RUST_BACKTRACE", "1");
@@ -133,22 +134,7 @@ impl App {
         .into()
     }
 
-    fn normalize_stuff(&mut self) {
-        self.normalize_all_assignments();
-    }
-
-    fn normalize_all_assignments(&mut self) {
-        Activity::normalize_assignments(&self.conn, None);
-        let mut f = |conn: &Conn, activity: &mut Activity| {
-            Activity::normalize_assignments(conn, Some(activity.id));
-        };
-
-        let mut activities = Activity::fetch_all_activities(&self.conn);
-        Activity::activity_walker_dfs(&self.conn, &mut activities, &mut f)
-    }
-
     fn refresh(&mut self) {
-        self.normalize_stuff();
         self.activities = Activity::fetch_all_activities(&self.conn);
         self.textboxval = String::new();
         self.page.refresh(&self.conn);
@@ -175,35 +161,44 @@ pub enum Message {
     GoToTree,
     PickAct(Option<ActID>),
     ChooseParent { child: ActID },
+
     GoBack,
+    SubmitValue,
+    ValueGetInput(String),
+    GoAssign(ActID),
 }
 
-impl Sandbox for App {
+impl Application for App {
+    type Executor = executor::Default;
     type Message = Message;
+    type Theme = iced::Theme;
+    type Flags = ();
 
-    fn new() -> Self {
+    fn new(_flags: ()) -> (Self, Command<Message>) {
         let conn = sql::init();
-        Activity::normalize_assignments(&conn, None);
         let activities = Activity::fetch_all_activities(&conn);
-        Self {
+        let app = Self {
             conn,
             textboxval: String::new(),
             activities,
             page: Page::default(),
-        }
+        };
+        (app, Command::none())
     }
 
     fn title(&self) -> String {
         String::from("Counter - Iced")
     }
 
-    fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Message) -> Command<Message> {
         match &mut self.page {
             Page::Main => match message {
                 Message::MainEditActivity(id) => {
-                    self.page = Page::Edit(EditPage::new(&self.conn, id))
+                    self.page = Page::Edit(EditPage::new(&self.conn, id));
                 }
-                Message::MainInputChanged(x) => self.textboxval = x,
+                Message::MainInputChanged(x) => {
+                    self.textboxval = x;
+                }
 
                 Message::MainAddActivity => {
                     let x: String = std::mem::take(&mut self.textboxval);
@@ -212,8 +207,12 @@ impl Sandbox for App {
                     self.activities.push(activity);
                     self.refresh();
                 }
-                Message::MainRefresh => self.refresh(),
-                Message::GoToTree => self.page = Page::TreeView(TreeView::new(&self.conn)),
+                Message::MainRefresh => {
+                    self.refresh();
+                }
+                Message::GoToTree => {
+                    self.page = Page::TreeView(TreeView::new(&self.conn));
+                }
 
                 _ => {
                     panic!("you forgot to add {:?} to this match arm", message)
@@ -264,20 +263,7 @@ impl Sandbox for App {
                 }
                 _ => {
                     panic!("you forgot to add {:?} to this match arm", message)
-                } /*
-                  },
-                  Page::NewSession(page) => match message {
-                      Message::SessionAddSession => {
-                          if page.duration.is_empty() {
-                              self.page = Page::Main;
-                              self.refresh();
-                              return;
-                          }
-                          page.new_session(&self.conn);
-                          self.page = Page::Main;
-                          self.refresh();
-                      }
-                      */
+                }
             },
             Page::TreeView(tree) => match (&tree.picker, message) {
                 (None, Message::GoBack) => {
@@ -296,9 +282,30 @@ impl Sandbox for App {
                 (None, Message::ChooseParent { child }) => {
                     tree.picker = Some((child, Picker::new(&self.conn)))
                 }
+                (None, Message::GoAssign(id)) => {
+                    let x = ValueGetter::new("Choose new assigned time lol".to_string(), id);
+                    tree.edit_assignment = Some(x);
+                }
+                (_, Message::ValueGetInput(val)) => {
+                    if val.is_empty() || val.parse::<f64>().is_ok() {
+                        if let Some(x) = tree.edit_assignment.as_mut() {
+                            x.input = val;
+                        }
+                    }
+                }
+                (_, Message::SubmitValue) => {
+                    if let Some(x) = tree.edit_assignment.as_ref() {
+                        if let Ok(val) = x.input.parse::<f64>() {
+                            let val = val / 100.; // convert from percentage to decimals
+                            sql::set_assigned(&self.conn, x.id, val);
+                        }
+                    }
+                    tree.edit_assignment = None;
+                }
                 (_, _) => {}
             },
         }
+        Command::none()
     }
 
     fn view(&self) -> Element<Message> {
@@ -308,4 +315,12 @@ impl Sandbox for App {
             Page::TreeView(page) => page.view_activities(&self.conn),
         }
     }
+}
+
+pub fn matches_100(vec: &Vec<u32>) -> bool {
+    let mut tot = 0;
+    for num in vec {
+        tot += num;
+    }
+    tot == 100
 }

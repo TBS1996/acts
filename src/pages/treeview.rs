@@ -10,12 +10,13 @@ use iced::Renderer;
 use iced::{Alignment, Element, Sandbox};
 
 use super::picker::Picker;
+use super::ValueGetter;
 
 #[derive(Debug)]
 pub struct TreeView {
     activities: Vec<Activity>,
-    // ActID is the card that will be moved to below the parent chosen
     pub picker: Option<(ActID, Picker)>,
+    pub edit_assignment: Option<ValueGetter>,
 }
 
 impl TreeView {
@@ -24,6 +25,7 @@ impl TreeView {
         Self {
             activities,
             picker: None,
+            edit_assignment: None,
         }
     }
 
@@ -41,17 +43,11 @@ impl TreeView {
         let padding = ">".repeat(depth * 6);
         let padding = iced::Element::new(iced::widget::text::Text::new(padding));
 
-        let assigned: iced::widget::text_input::TextInput<'_, Message, Renderer> = text_input(
-            "hey",
-            &activity.assigned.to_string(),
-            Message::MainInputChanged,
-        )
-        .on_submit(Message::MainAddActivity)
-        .padding(10)
-        .width(75)
-        .size(20);
-
         let elm = iced::Element::new(iced::widget::text::Text::new(activity.display(conn)));
+
+        let assigned: iced::widget::button::Button<Message> =
+            iced::widget::button(iced::widget::text::Text::new("assigned"))
+                .on_press(Message::GoAssign(activity.id));
 
         let edit_button: iced::widget::button::Button<Message> =
             iced::widget::button(iced::widget::text::Text::new("Edit"))
@@ -78,6 +74,10 @@ impl TreeView {
     pub fn view_activities(&self, conn: &Conn) -> Element<'static, Message> {
         if let Some(picker) = &self.picker {
             return picker.1.view_activities();
+        }
+
+        if let Some(x) = &self.edit_assignment {
+            return x.view();
         }
 
         let mut some_vec = Vec::new();

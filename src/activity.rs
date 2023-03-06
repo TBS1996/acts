@@ -7,7 +7,7 @@ pub struct Activity {
     pub id: ActID,
     pub text: String,
     pub priority: f32,
-    pub assigned: f32,
+    pub assigned: u32,
     pub parent: Option<ActID>,
     pub children: Vec<Activity>,
 }
@@ -87,34 +87,15 @@ impl Activity {
     }
 
     pub fn get_true_assigned(conn: &Conn, mut id: ActID) -> f32 {
-        let assigned = Activity::fetch_activity(conn, id).unwrap().assigned;
+        let assigned = Activity::fetch_activity(conn, id).unwrap().assigned as f32;
         let mut multiply = 1.;
 
         while let Some(parent) = Activity::get_parent(conn, id) {
-            multiply *= parent.assigned;
+            multiply *= parent.assigned as f32;
             id = parent.id;
         }
 
         assigned * multiply
-    }
-
-    pub fn normalize_assignments(conn: &Conn, parent: Option<ActID>) {
-        let siblings = Self::fetch_children(conn, parent);
-
-        let mut total_assignment = 0.;
-
-        for sibling in &siblings {
-            total_assignment += sibling.assigned;
-        }
-
-        for sibling in siblings {
-            let new_assignment = sibling.assigned / total_assignment;
-            let statement = format!(
-                "UPDATE activities SET assigned = {} WHERE id = {}",
-                new_assignment, sibling.id
-            );
-            conn.execute(&statement, []).unwrap();
-        }
     }
 
     /// Queries children, but not recursively.
@@ -152,7 +133,7 @@ impl Activity {
             id,
             text,
             priority: 1.,
-            assigned: 1.,
+            assigned: 1,
             parent: None,
             children: vec![],
         }

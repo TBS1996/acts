@@ -47,6 +47,14 @@ pub fn delete_activity(conn: &Conn, id: ActID) {
     execute(conn, &statement).unwrap();
 }
 
+pub fn set_assigned(conn: &Conn, id: ActID, assigned: f64) {
+    let statement = format!(
+        "UPDATE activities SET assigned = {} WHERE id = {}",
+        assigned, id
+    );
+    execute(conn, &statement).unwrap();
+}
+
 pub fn init() -> Conn {
     let conn = Conn::open(PATH).unwrap();
 
@@ -54,7 +62,7 @@ pub fn init() -> Conn {
             id INTEGER PRIMARY KEY,
             text TEXT NOT NULL,
             parent INTEGER,
-            assigned FLOAT NOT NULL,
+            assigned INTEGER NOT NULL,
             FOREIGN KEY (parent) REFERENCES activities (id)
             )
             ";
