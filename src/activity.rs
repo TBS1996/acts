@@ -17,10 +17,10 @@ impl std::convert::TryFrom<&rusqlite::Row<'_>> for Activity {
 
     fn try_from(value: &rusqlite::Row) -> Result<Self, Self::Error> {
         Ok(Activity {
-            id: value.get(0)?,
-            text: value.get(1)?,
-            parent: value.get(2)?,
-            assigned: value.get(3)?,
+            id: value.get(0).unwrap(),
+            text: value.get(1).unwrap(),
+            parent: value.get(2).unwrap(),
+            assigned: value.get::<usize, u32>(3).unwrap(),
             priority: 1.,
             children: vec![],
         })
@@ -133,7 +133,7 @@ impl Activity {
             id,
             text,
             priority: 1.,
-            assigned: 1,
+            assigned: 100,
             parent: None,
             children: vec![],
         }
@@ -148,7 +148,7 @@ impl Activity {
     }
 
     pub fn display(&self, conn: &Conn) -> String {
-        let assigned = Activity::get_true_assigned(conn, self.id) * 100.;
+        let assigned = Activity::get_true_assigned(conn, self.id);
 
         format!("{} -> {:.1}%", self.text, assigned,)
     }
@@ -225,5 +225,28 @@ impl Activity {
             Self::push_child(activity, activities, parent);
             Self::fetch_all_activities_helper(conn, activities, Some(id));
         }
+    }
+
+    fn get_assigned_vec_from_children(conn: &Conn, parent: Option<ActID>) -> Vec<i32> {
+        Self::fetch_children(conn, parent)
+            .into_iter()
+            .map(|act| act.assigned as i32)
+            .collect()
+    }
+
+    pub fn normalize_assignments(conn: &Conn) {
+        fn recursive(conn: &Conn, parent: Option<ActID>) {
+            let kids = Activity::fetch_children(conn, parent);
+            if !kids.is_empty() {
+                let nums = kids.iter().map(|kid| kid.assigned as i32).collect();
+                let normalized = crate::utils::normalize_vec(nums, 100);
+
+                for (idx, kid) in kids.iter().enumerate() {
+                    sql::set_assigned(conn, kid.id, normalized[idx] as u32);
+                    recursive(conn, Some(kid.id));
+                }
+            }
+        }
+        recursive(conn, None);
     }
 }

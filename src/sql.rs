@@ -47,7 +47,7 @@ pub fn delete_activity(conn: &Conn, id: ActID) {
     execute(conn, &statement).unwrap();
 }
 
-pub fn set_assigned(conn: &Conn, id: ActID, assigned: f64) {
+pub fn set_assigned(conn: &Conn, id: ActID, assigned: u32) {
     let statement = format!(
         "UPDATE activities SET assigned = {} WHERE id = {}",
         assigned, id
@@ -82,7 +82,8 @@ pub fn init() -> Conn {
 
 pub fn new_activity(conn: &Conn, activity: &Activity) -> Result<(), rusqlite::Error> {
     let sibqty = get_kid_qty(conn, &activity.parent);
-    let assigned = if sibqty > 0 { 1. / (sibqty as f32) } else { 1. };
+    //let assigned = if sibqty > 0 { 1. / (sibqty as f32) } else { 1. };
+    let assigned = 1;
     conn.execute(
         "INSERT INTO activities (id, text, parent, assigned) VALUES (?1, ?2, ?3, ?4)",
         (&activity.id, &activity.text, &activity.parent, assigned),
@@ -105,6 +106,7 @@ where
     conn.prepare(statement)?
         .query_map([], |row| {
             vec.push(transformer(row)?);
+            dbg!("aa");
             Ok(())
         })?
         .for_each(|_| {});

@@ -9,6 +9,7 @@ use iced::Renderer;
 
 use iced::{Alignment, Element, Sandbox};
 
+use super::assignments::Assignments;
 use super::picker::Picker;
 use super::ValueGetter;
 
@@ -16,7 +17,7 @@ use super::ValueGetter;
 pub struct TreeView {
     activities: Vec<Activity>,
     pub picker: Option<(ActID, Picker)>,
-    pub edit_assignment: Option<ValueGetter>,
+    pub edit_assignment: Option<Assignments>,
 }
 
 impl TreeView {
@@ -77,7 +78,7 @@ impl TreeView {
         }
 
         if let Some(x) = &self.edit_assignment {
-            return x.view();
+            return x.view_activities();
         }
 
         let mut some_vec = Vec::new();

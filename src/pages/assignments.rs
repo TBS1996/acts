@@ -15,6 +15,7 @@ pub struct Assignments {
     parent: Option<ActID>,
     activities: Vec<Activity>,
     diff: i32,
+    idx: usize,
 }
 
 impl Assignments {
@@ -35,6 +36,7 @@ impl Assignments {
             parent,
             activities,
             diff: 0,
+            idx: 0,
         };
 
         let diff = myself.get_diff();
@@ -46,15 +48,15 @@ impl Assignments {
     }
 
     pub fn view_activities(&self) -> Element<'static, Message> {
-        let mut some_vec = Vec::new();
-        let root_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("Root"))
-                .on_press(Message::PickAct(None));
-
-        for act in &self.activities {
-            let actbutton: iced::widget::button::Button<Message> =
-                iced::widget::button(iced::widget::text::Text::new(act.text.clone()))
-                    .on_press(Message::PickAct(Some(act.id)));
+        for (idx, act) in self.activities.iter().enumerate() {
+            let actbutton: iced::widget::text_input::TextInput<'_, Message, Renderer> =
+                text_input("Add activity", &act.text, Message::MainInputChanged)
+                    .on_submit(|self: &Assignments| {
+                        self.idx = idx;
+                        Message::MainInputChanged
+                    })
+                    .padding(20)
+                    .size(30);
             let row = iced::Element::new(iced::widget::row![actbutton]);
             some_vec.push(row);
         }

@@ -3,6 +3,7 @@ use iced::widget::{button, column, pick_list, row, text_input};
 
 use iced::widget::Column;
 use iced::{executor, Alignment, Application, Command, Element, Renderer, Sandbox, Settings};
+use pages::assignments::Assignments;
 use pages::picker::Picker;
 use pages::ValueGetter;
 
@@ -80,6 +81,7 @@ impl App {
             let button: iced::widget::button::Button<Message> =
                 iced::widget::button(iced::widget::text::Text::new(act.display_flat(&self.conn)))
                     .on_press(Message::MainEditActivity(act.id));
+            dbg!(&act.display_flat(&self.conn));
             let row = iced::Element::new(iced::widget::row![button]);
             wtf.push(row);
         }
@@ -87,7 +89,7 @@ impl App {
     }
 
     fn view_by_priority(&self) -> Vec<Activity> {
-        let mut activities = Activity::fetch_all_activities(&self.conn);
+        let mut activities = Activity::fetch_all_activities_flat(&self.conn);
         crate::Activity::assign_priorities(&self.conn, &mut activities);
 
         fn recursive(leaves: &mut Vec<Activity>, activity: &mut Activity) {
@@ -137,6 +139,7 @@ impl App {
     fn refresh(&mut self) {
         self.activities = Activity::fetch_all_activities(&self.conn);
         self.textboxval = String::new();
+        Activity::normalize_assignments(&self.conn);
         self.page.refresh(&self.conn);
     }
 }
@@ -166,6 +169,7 @@ pub enum Message {
     SubmitValue,
     ValueGetInput(String),
     GoAssign(ActID),
+    InputChangeIndexed(usize, String),
 }
 
 impl Application for App {
@@ -237,9 +241,7 @@ impl Application for App {
                     }
                 }
                 Message::EditAddAssign => {
-                    if let Ok(num) = editor.assigned.parse::<f32>() {
-                        let num = num / 100.;
-                        assert!(num < 1. && num > 0.);
+                    if let Ok(num) = editor.assigned.parse::<u32>() {
                         let statement = format!(
                             "UPDATE activities SET assigned = {} WHERE id = {}",
                             num, editor.activity.id
@@ -283,9 +285,11 @@ impl Application for App {
                     tree.picker = Some((child, Picker::new(&self.conn)))
                 }
                 (None, Message::GoAssign(id)) => {
-                    let x = ValueGetter::new("Choose new assigned time lol".to_string(), id);
+                    let parent = Activity::fetch_activity(&self.conn, id).unwrap().parent;
+                    let x = Assignments::new(&self.conn, parent);
                     tree.edit_assignment = Some(x);
                 }
+                /*
                 (_, Message::ValueGetInput(val)) => {
                     if val.is_empty() || val.parse::<f64>().is_ok() {
                         if let Some(x) = tree.edit_assignment.as_mut() {
@@ -295,13 +299,13 @@ impl Application for App {
                 }
                 (_, Message::SubmitValue) => {
                     if let Some(x) = tree.edit_assignment.as_ref() {
-                        if let Ok(val) = x.input.parse::<f64>() {
-                            let val = val / 100.; // convert from percentage to decimals
+                        if let Ok(val) = x.input.parse::<u32>() {
                             sql::set_assigned(&self.conn, x.id, val);
                         }
                     }
                     tree.edit_assignment = None;
                 }
+                */
                 (_, _) => {}
             },
         }
