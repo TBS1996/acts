@@ -3,7 +3,6 @@ use iced::widget::{button, column, pick_list, row, text_input};
 
 use iced::widget::Column;
 use iced::{executor, Alignment, Application, Command, Element, Renderer, Sandbox, Settings};
-use pages::assignments::Assignments;
 use pages::picker::Picker;
 use pages::ValueGetter;
 
@@ -285,13 +284,11 @@ impl Application for App {
                     tree.picker = Some((child, Picker::new(&self.conn)))
                 }
                 (None, Message::GoAssign(id)) => {
-                    let parent = Activity::fetch_activity(&self.conn, id).unwrap().parent;
-                    let x = Assignments::new(&self.conn, parent);
+                    let x = ValueGetter::new("assign some stuff".to_string(), id);
                     tree.edit_assignment = Some(x);
                 }
-                /*
                 (_, Message::ValueGetInput(val)) => {
-                    if val.is_empty() || val.parse::<f64>().is_ok() {
+                    if val.is_empty() || val.parse::<u32>().is_ok() {
                         if let Some(x) = tree.edit_assignment.as_mut() {
                             x.input = val;
                         }
@@ -304,8 +301,8 @@ impl Application for App {
                         }
                     }
                     tree.edit_assignment = None;
+                    self.refresh();
                 }
-                */
                 (_, _) => {}
             },
         }

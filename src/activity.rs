@@ -91,7 +91,7 @@ impl Activity {
         let mut multiply = 1.;
 
         while let Some(parent) = Activity::get_parent(conn, id) {
-            multiply *= parent.assigned as f32;
+            multiply *= (parent.assigned as f32) / 100.;
             id = parent.id;
         }
 
@@ -133,7 +133,7 @@ impl Activity {
             id,
             text,
             priority: 1.,
-            assigned: 100,
+            assigned: 50,
             parent: None,
             children: vec![],
         }
@@ -148,9 +148,9 @@ impl Activity {
     }
 
     pub fn display(&self, conn: &Conn) -> String {
-        let assigned = Activity::get_true_assigned(conn, self.id);
+        // let assigned = Activity::get_true_assigned(conn, self.id);
 
-        format!("{} -> {:.1}%", self.text, assigned,)
+        format!("{} -> {}%", self.text, &self.assigned,)
     }
 
     pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {

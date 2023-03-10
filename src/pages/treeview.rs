@@ -9,7 +9,6 @@ use iced::Renderer;
 
 use iced::{Alignment, Element, Sandbox};
 
-use super::assignments::Assignments;
 use super::picker::Picker;
 use super::ValueGetter;
 
@@ -17,7 +16,7 @@ use super::ValueGetter;
 pub struct TreeView {
     activities: Vec<Activity>,
     pub picker: Option<(ActID, Picker)>,
-    pub edit_assignment: Option<Assignments>,
+    pub edit_assignment: Option<ValueGetter>,
 }
 
 impl TreeView {
@@ -34,42 +33,53 @@ impl TreeView {
         *self = Self::new(conn)
     }
 
-    fn view_helper(
+    fn view_recursive(
         &self,
         conn: &Conn,
-        activity: Activity,
-        elms: &mut Vec<Element<'static, Message>>,
+        parent: Option<ActID>,
         depth: usize,
-    ) {
-        let padding = ">".repeat(depth * 6);
-        let padding = iced::Element::new(iced::widget::text::Text::new(padding));
+    ) -> Vec<Element<'static, Message>> {
+        fn recursive(
+            conn: &Conn,
+            elms: &mut Vec<Element<'static, Message>>,
+            parent: Option<ActID>,
+            depth: usize,
+        ) {
+            let kids = Activity::fetch_children(conn, parent);
 
-        let elm = iced::Element::new(iced::widget::text::Text::new(activity.display(conn)));
+            for kid in kids {
+                let padding = ">".repeat(depth * 6);
+                let padding = iced::Element::new(iced::widget::text::Text::new(padding));
 
-        let assigned: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("assigned"))
-                .on_press(Message::GoAssign(activity.id));
+                let elm = iced::Element::new(iced::widget::text::Text::new(kid.display(conn)));
 
-        let edit_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("Edit"))
-                .on_press(Message::MainEditActivity(activity.id));
+                let assigned: iced::widget::button::Button<Message> =
+                    iced::widget::button(iced::widget::text::Text::new("assigned"))
+                        .on_press(Message::GoAssign(kid.id));
 
-        let parent_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new(":"))
-                .on_press(Message::ChooseParent { child: activity.id });
+                let edit_button: iced::widget::button::Button<Message> =
+                    iced::widget::button(iced::widget::text::Text::new("Edit"))
+                        .on_press(Message::MainEditActivity(kid.id));
 
-        let row = iced::Element::new(iced::widget::row![
-            padding,
-            parent_button,
-            edit_button,
-            elm,
-            assigned
-        ]);
-        elms.push(row);
+                let parent_button: iced::widget::button::Button<Message> =
+                    iced::widget::button(iced::widget::text::Text::new(":"))
+                        .on_press(Message::ChooseParent { child: kid.id });
 
-        for activity in activity.children {
-            self.view_helper(conn, activity, elms, depth + 1);
+                let row = iced::Element::new(iced::widget::row![
+                    padding,
+                    parent_button,
+                    edit_button,
+                    elm,
+                    assigned
+                ]);
+                elms.push(row);
+                recursive(conn, elms, Some(kid.id), depth + 1);
+            }
         }
+
+        let mut elms = vec![];
+        recursive(conn, &mut elms, None, 0);
+        elms
     }
 
     pub fn view_activities(&self, conn: &Conn) -> Element<'static, Message> {
@@ -78,13 +88,11 @@ impl TreeView {
         }
 
         if let Some(x) = &self.edit_assignment {
-            return x.view_activities();
+            return x.view();
         }
 
-        let mut some_vec = Vec::new();
-        for act in &self.activities {
-            self.view_helper(conn, act.clone(), &mut some_vec, 0);
-        }
+        let some_vec = self.view_recursive(conn, None, 0);
+
         let back_button: iced::widget::button::Button<Message> =
             iced::widget::button(iced::widget::text::Text::new("Go back"))
                 .on_press(Message::GoBack);
