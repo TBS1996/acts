@@ -150,7 +150,7 @@ impl Activity {
     pub fn display(&self, conn: &Conn) -> String {
         // let assigned = Activity::get_true_assigned(conn, self.id);
 
-        format!("{} -> {}%", self.text, &self.assigned,)
+        format!("{}% | {}", self.assigned, &self.text,)
     }
 
     pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {
@@ -158,8 +158,6 @@ impl Activity {
         let time_spent = crate::history::Session::total_weighted_time_spent_from_activity(conn, id);
 
         let ratio = (time_spent.as_secs_f32() / 60. + 1.) / (total.as_secs_f32() / 60. + 1.);
-
-        dbg!(&total, &time_spent, &ratio);
 
         Activity::get_true_assigned(conn, id) / ratio
     }
@@ -227,11 +225,19 @@ impl Activity {
         }
     }
 
-    fn get_assigned_vec_from_children(conn: &Conn, parent: Option<ActID>) -> Vec<i32> {
-        Self::fetch_children(conn, parent)
-            .into_iter()
-            .map(|act| act.assigned as i32)
-            .collect()
+    pub fn delete_activity(conn: &Conn, id: ActID) {
+        // Before deleting activity, make sure all the children get the parent of the to-be-deleted
+        // activity.
+        let activity = Self::fetch_activity(conn, id).unwrap();
+        let parent = activity.parent;
+
+        let children = Self::fetch_children(conn, Some(id));
+
+        for child in children {
+            Self::set_parent(conn, child.id, parent);
+        }
+
+        sql::delete_activity(conn, id);
     }
 
     pub fn normalize_assignments(conn: &Conn) {

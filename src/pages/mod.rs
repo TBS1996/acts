@@ -3,21 +3,36 @@ pub mod editpage;
 pub mod picker;
 pub mod treeview;
 
+use iced::{Alignment, Command, Element, Renderer, Sandbox, Settings};
 // PoC
 pub trait Page {
     fn refresh(&mut self);
 
-    fn view(&self) {
+    fn view(&self) -> Element<'static, Message> {
         if let Some(page) = self.get_subpage() {
-            page.view();
+            page.view()
         } else {
-            self.view_self();
+            self.view_self()
         }
     }
 
-    fn view_self(&self);
+    fn view_self(&self) -> Element<'static, Message>;
+
+    fn clear_subpage(&mut self);
 
     fn get_subpage(&self) -> Option<&Self>;
+
+    fn get_subpage_mut(&mut self) -> Option<&mut Self>;
+
+    fn update(&mut self, message: Message) -> Command<Message> {
+        if let Some(page) = self.get_subpage_mut() {
+            page.update(message)
+        } else {
+            self.update_self(message)
+        }
+    }
+
+    fn update_self(&mut self, message: Message) -> Command<Message>;
 }
 
 use std::fmt::Debug;
@@ -27,7 +42,6 @@ use crate::{ActID, Conn, Message};
 use iced::widget::{button, column, pick_list, row, text, text_input};
 
 use iced::widget::Column;
-use iced::{Alignment, Element, Renderer, Sandbox, Settings};
 
 pub struct ValueGetter {
     pub title: String,

@@ -21,7 +21,6 @@ pub fn normalize_vec(nums: Vec<i32>, target: i32) -> Vec<i32> {
 
     let veclen = normalized.len();
     for i in 0..diff {
-        dbg!(i, veclen);
         match positive {
             true => normalized[i as usize % veclen] -= 1,
             false => normalized[i as usize % veclen] += 1,

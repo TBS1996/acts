@@ -43,12 +43,6 @@ impl EditPage {
         .padding(20)
         .size(30);
 
-        let assigned_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
-            text_input("Assign time", &self.assigned, Message::EditAssignInput)
-                .on_submit(Message::EditAddAssign)
-                .padding(20)
-                .size(30);
-
         let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
             text_input("Edit name", &self.activity.text, Message::EditInputChanged)
                 .on_submit(Message::EditGotoMain)
@@ -58,7 +52,6 @@ impl EditPage {
         column![
             session_input,
             text_input,
-            assigned_input,
             button("go back to main").on_press(Message::EditGotoMain),
             button("Delete").on_press(Message::EditDeleteActivity(self.activity.id)),
         ]

@@ -79,8 +79,7 @@ impl App {
         for act in acts {
             let button: iced::widget::button::Button<Message> =
                 iced::widget::button(iced::widget::text::Text::new(act.display_flat(&self.conn)))
-                    .on_press(Message::MainEditActivity(act.id));
-            dbg!(&act.display_flat(&self.conn));
+                    .on_press(Message::EditActivity(act.id));
             let row = iced::Element::new(iced::widget::row![button]);
             wtf.push(row);
         }
@@ -88,7 +87,10 @@ impl App {
     }
 
     fn view_by_priority(&self) -> Vec<Activity> {
-        let mut activities = Activity::fetch_all_activities_flat(&self.conn);
+        let mut activities = Activity::fetch_all_activities_flat(&self.conn)
+            .into_iter()
+            .filter(|act| Activity::fetch_children(&self.conn, Some(act.id)).is_empty())
+            .collect();
         crate::Activity::assign_priorities(&self.conn, &mut activities);
 
         fn recursive(leaves: &mut Vec<Activity>, activity: &mut Activity) {
@@ -148,7 +150,7 @@ pub enum Message {
     MainInputChanged(String),
     MainAssigned(String),
     MainAddActivity,
-    MainEditActivity(ActID),
+    EditActivity(ActID),
     MainNewSession(ActID),
     MainRefresh,
 
@@ -196,7 +198,7 @@ impl Application for App {
     fn update(&mut self, message: Message) -> Command<Message> {
         match &mut self.page {
             Page::Main => match message {
-                Message::MainEditActivity(id) => {
+                Message::EditActivity(id) => {
                     self.page = Page::Edit(EditPage::new(&self.conn, id));
                 }
                 Message::MainInputChanged(x) => {
@@ -223,7 +225,7 @@ impl Application for App {
             },
             Page::Edit(editor) => match message {
                 Message::EditDeleteActivity(id) => {
-                    sql::delete_activity(&self.conn, id);
+                    Activity::delete_activity(&self.conn, id);
                     self.page = Page::Main;
                     self.refresh();
                 }
@@ -267,6 +269,10 @@ impl Application for App {
                 }
             },
             Page::TreeView(tree) => match (&tree.picker, message) {
+                (None, Message::GoBack) if tree.edit_assignment.is_some() => {
+                    tree.edit_assignment = None;
+                    self.refresh();
+                }
                 (None, Message::GoBack) => {
                     self.page = Page::Main;
                     self.refresh();
@@ -279,6 +285,9 @@ impl Application for App {
                     Activity::set_parent(&self.conn, x.0, id);
                     tree.picker = None;
                     self.refresh();
+                }
+                (None, Message::EditActivity(id)) => {
+                    self.page = Page::Edit(EditPage::new(&self.conn, id));
                 }
                 (None, Message::ChooseParent { child }) => {
                     tree.picker = Some((child, Picker::new(&self.conn)))

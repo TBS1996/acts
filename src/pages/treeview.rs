@@ -48,28 +48,31 @@ impl TreeView {
             let kids = Activity::fetch_children(conn, parent);
 
             for kid in kids {
-                let padding = ">".repeat(depth * 6);
+                let padding = " ".repeat(depth * 6);
                 let padding = iced::Element::new(iced::widget::text::Text::new(padding));
 
-                let elm = iced::Element::new(iced::widget::text::Text::new(kid.display(conn)));
+                let single_pad = iced::Element::new(iced::widget::text::Text::new(" "));
 
-                let assigned: iced::widget::button::Button<Message> =
-                    iced::widget::button(iced::widget::text::Text::new("assigned"))
-                        .on_press(Message::GoAssign(kid.id));
+                //let elm = iced::Element::new(iced::widget::text::Text::new(kid.display(conn)));
+
+                let assigned: iced::widget::button::Button<Message> = iced::widget::button(
+                    iced::widget::text::Text::new(format!("{}%", kid.assigned.to_string())),
+                )
+                .on_press(Message::GoAssign(kid.id));
 
                 let edit_button: iced::widget::button::Button<Message> =
-                    iced::widget::button(iced::widget::text::Text::new("Edit"))
-                        .on_press(Message::MainEditActivity(kid.id));
+                    iced::widget::button(iced::widget::text::Text::new(kid.text))
+                        .on_press(Message::EditActivity(kid.id));
 
                 let parent_button: iced::widget::button::Button<Message> =
                     iced::widget::button(iced::widget::text::Text::new(":"))
                         .on_press(Message::ChooseParent { child: kid.id });
 
                 let row = iced::Element::new(iced::widget::row![
-                    padding,
                     parent_button,
+                    padding,
                     edit_button,
-                    elm,
+                    single_pad,
                     assigned
                 ]);
                 elms.push(row);

@@ -50,7 +50,6 @@ impl Session {
             let time = session.duration.mul_f32(factor);
             total_time += time;
         }
-        dbg!(&total_time, &sessions);
         total_time
     }
 

@@ -106,7 +106,6 @@ where
     conn.prepare(statement)?
         .query_map([], |row| {
             vec.push(transformer(row)?);
-            dbg!("aa");
             Ok(())
         })?
         .for_each(|_| {});
