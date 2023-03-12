@@ -10,14 +10,13 @@ use iced::widget::{button, column, text_input};
 use iced::{Alignment, Command, Element, Renderer, Sandbox};
 
 #[derive(Debug)]
-pub struct EditPage<'a> {
+pub struct EditPage {
     pub activity: Activity,
     pub assigned: String,
     pub session_duration: String,
-    conn: &'a Conn,
 }
 
-impl<'a> Page for EditPage<'a> {
+impl Page for EditPage {
     fn refresh(&mut self) {
         //*self = Self::new(conn, self.activity.id)
     }
@@ -58,13 +57,12 @@ impl<'a> Page for EditPage<'a> {
     }
 }
 
-impl<'a> EditPage<'a> {
-    pub fn new(conn: &'a Conn, id: ActID) -> Self {
+impl EditPage {
+    pub fn new(conn: &Conn, id: ActID) -> Self {
         Self {
             activity: Activity::fetch_activity(conn, id).unwrap(),
             assigned: String::default(),
             session_duration: String::default(),
-            conn,
         }
     }
 

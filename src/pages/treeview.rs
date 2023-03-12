@@ -3,7 +3,11 @@ use crate::ActID;
 use crate::activity::Activity;
 
 use crate::Conn;
+use crate::MainMessage;
 use crate::Message;
+use crate::Page;
+use crate::PageMessage;
+
 use iced::widget::{column, pick_list, text_input, Column};
 use iced::Renderer;
 
@@ -17,25 +21,41 @@ pub struct TreeView {
     activities: Vec<Activity>,
     pub picker: Option<(ActID, Picker)>,
     pub edit_assignment: Option<ValueGetter>,
+    conn: Conn,
+}
+
+impl Page for TreeView {
+    fn refresh(&mut self) {}
+    fn update(&mut self, message: PageMessage) -> iced::Command<Message> {
+        todo!()
+    }
+    fn view(&self) -> Element<'static, Message> {
+        let some_vec = self.view_recursive(None, 0);
+
+        let back_button: iced::widget::button::Button<Message> =
+            iced::widget::button(iced::widget::text::Text::new("Go back"))
+                .on_press(MainMessage::GoBack.into_message());
+
+        column![back_button, Column::with_children(some_vec)]
+            .padding(20)
+            .align_items(Alignment::Center)
+            .into()
+    }
 }
 
 impl TreeView {
-    pub fn new(conn: &Conn) -> Self {
-        let activities = Activity::fetch_all_activities(conn);
+    pub fn new(conn: Conn) -> Self {
+        let activities = Activity::fetch_all_activities(&conn);
         Self {
             activities,
             picker: None,
             edit_assignment: None,
+            conn,
         }
-    }
-
-    pub fn refresh(&mut self, conn: &Conn) {
-        *self = Self::new(conn)
     }
 
     fn view_recursive(
         &self,
-        conn: &Conn,
         parent: Option<ActID>,
         depth: usize,
     ) -> Vec<Element<'static, Message>> {
@@ -58,15 +78,15 @@ impl TreeView {
                 let assigned: iced::widget::button::Button<Message> = iced::widget::button(
                     iced::widget::text::Text::new(format!("{}%", kid.assigned.to_string())),
                 )
-                .on_press(Message::GoAssign(kid.id));
+                .on_press(MainMessage::NewAssign(kid.id).into_message());
 
                 let edit_button: iced::widget::button::Button<Message> =
                     iced::widget::button(iced::widget::text::Text::new(kid.text))
-                        .on_press(Message::EditActivity(kid.id));
+                        .on_press(MainMessage::NewEdit(kid.id).into_message());
 
                 let parent_button: iced::widget::button::Button<Message> =
                     iced::widget::button(iced::widget::text::Text::new(":"))
-                        .on_press(Message::ChooseParent { child: kid.id });
+                        .on_press(PageMessage::ChooseParent { child: kid.id }.into_message());
 
                 let row = iced::Element::new(iced::widget::row![
                     parent_button,
@@ -81,28 +101,7 @@ impl TreeView {
         }
 
         let mut elms = vec![];
-        recursive(conn, &mut elms, None, 0);
+        recursive(&self.conn, &mut elms, None, 0);
         elms
-    }
-
-    pub fn view_activities(&self, conn: &Conn) -> Element<'static, Message> {
-        if let Some(picker) = &self.picker {
-            return picker.1.view_activities();
-        }
-
-        if let Some(x) = &self.edit_assignment {
-            return x.view();
-        }
-
-        let some_vec = self.view_recursive(conn, None, 0);
-
-        let back_button: iced::widget::button::Button<Message> =
-            iced::widget::button(iced::widget::text::Text::new("Go back"))
-                .on_press(Message::GoBack);
-
-        column![back_button, Column::with_children(some_vec)]
-            .padding(20)
-            .align_items(Alignment::Center)
-            .into()
     }
 }

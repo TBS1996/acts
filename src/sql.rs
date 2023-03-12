@@ -56,7 +56,7 @@ pub fn set_assigned(conn: &Conn, id: ActID, assigned: u32) {
 }
 
 pub fn init() -> Conn {
-    let conn = Conn::open(PATH).unwrap();
+    let conn = std::rc::Rc::new(rusqlite::Connection::open(PATH).unwrap());
 
     let statement = "CREATE TABLE IF NOT EXISTS activities (
             id INTEGER PRIMARY KEY,

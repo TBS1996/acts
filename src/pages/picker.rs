@@ -1,7 +1,9 @@
 use crate::activity::Activity;
 
 use crate::Conn;
+use crate::MainMessage;
 use crate::Message;
+use crate::PageMessage;
 use iced::widget::{column, Column};
 
 use iced::{Alignment, Element, Sandbox};
@@ -21,19 +23,19 @@ impl Picker {
         let mut some_vec = Vec::new();
         let root_button: iced::widget::button::Button<Message> =
             iced::widget::button(iced::widget::text::Text::new("Root"))
-                .on_press(Message::PickAct(None));
+                .on_press(PageMessage::PickAct(None).into_message());
 
         for act in &self.activities {
             let actbutton: iced::widget::button::Button<Message> =
-                iced::widgetEditGotoMain::button(iced::widget::text::Text::new(act.text.clone()))
-                    .on_press(Message::PickAct(Some(act.id)));
+                iced::widget::button(iced::widget::text::Text::new(act.text.clone()))
+                    .on_press(PageMessage::PickAct(Some(act.id)).into_message());
             let row = iced::Element::new(iced::widget::row![actbutton]);
             some_vec.push(row);
         }
 
         let back_button: iced::widget::button::Button<Message> =
             iced::widget::button(iced::widget::text::Text::new("Go back"))
-                .on_press(Message::GoBack);
+                .on_press(MainMessage::GoBack.into_message());
         let text = iced::Element::new(iced::widget::text::Text::new("pick an activity!"));
 
         column![

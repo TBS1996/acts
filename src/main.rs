@@ -1,5 +1,6 @@
 use crate::pages::treeview::TreeView;
 use iced::widget::{button, column, pick_list, row, text_input};
+use std::rc::Rc;
 
 use iced::widget::Column;
 use iced::{executor, Alignment, Application, Command, Element, Renderer, Sandbox, Settings};
@@ -34,7 +35,7 @@ use crate::activity::Activity;
 use crate::pages::editpage::EditPage;
 use crate::pages::Page;
 
-type Conn = rusqlite::Connection;
+type Conn = Rc<rusqlite::Connection>;
 type ActID = usize;
 
 pub struct App {
@@ -57,7 +58,7 @@ impl App {
         for act in acts {
             let button: iced::widget::button::Button<Message> =
                 iced::widget::button(iced::widget::text::Text::new(act.display_flat(&self.conn)))
-                    .on_press(Message::MainMessage(MainMessage::EditActivity(act.id)));
+                    .on_press(Message::MainMessage(MainMessage::NewEdit(act.id)));
             let row = iced::Element::new(iced::widget::row![button]);
             wtf.push(row);
         }
@@ -137,10 +138,11 @@ pub enum MainMessage {
     GoBack,
     Refresh,
     DeleteActivity(ActID),
-    EditActivity(ActID),
     AddActivity,
     InputChanged(String),
     NewTreeView,
+    NewAssign(ActID),
+    NewEdit(ActID),
 }
 
 impl MainMessage {
@@ -149,9 +151,14 @@ impl MainMessage {
     }
 }
 
+/// Messages that are handled in the last page of the pages-vector.
 #[derive(Debug, Clone)]
 pub enum PageMessage {
     InputChanged(String),
+    PickAct(Option<ActID>),
+    ValueSubmit,
+    ValueGetInput(String),
+    ChooseParent { child: ActID },
 }
 
 impl PageMessage {
@@ -219,7 +226,34 @@ impl Application for App {
                 MainMessage::GoBack => {
                     self.page.pop();
                 }
-                _ => {}
+                MainMessage::NewEdit(id) => {
+                    let x = Box::new(EditPage::new(&self.conn, id));
+                    self.page.push(x);
+                }
+
+                MainMessage::NewAssign(id) => {
+                    let x = Box::new(ValueGetter::new("assign some stuff".to_string(), id));
+                    self.page.push(x);
+                }
+                MainMessage::NewTreeView => {
+                    let x = Box::new(TreeView::new(self.conn.clone()));
+                    self.page.push(x);
+                }
+                MainMessage::Refresh => self.refresh(),
+                MainMessage::DeleteActivity(id) => {
+                    Activity::delete_activity(&self.conn, id);
+                    self.refresh();
+                }
+                MainMessage::AddActivity => {
+                    let x: String = std::mem::take(&mut self.textboxval);
+                    let activity = Activity::new(&self.conn, x);
+                    sql::new_activity(&self.conn, &activity).unwrap();
+                    self.activities.push(activity);
+                    self.refresh();
+                }
+                MainMessage::InputChanged(val) => {
+                    self.textboxval = val;
+                }
             },
             Message::PageMessage(pagemsg) => {
                 if let Some(page) = self.page.last_mut() {
