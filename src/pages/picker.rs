@@ -14,7 +14,7 @@ pub struct Picker {
 }
 
 impl Picker {
-    pub fn new(conn: &Conn) -> Self {
+    pub fn new(conn: Conn) -> Self {
         let activities = Activity::fetch_all_activities_flat(conn);
         Self { activities }
     }

@@ -66,17 +66,16 @@ impl Assignments {
                 .on_press(Message::GoBack);
         let text = iced::Element::new(iced::widget::text::Text::new("pick an activity!"));
 
-        /*
         let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
-            text_input("wtf", &self.input, Message::ValueGetInput)
+            text_input("edit assignment", &self.input, Message::ValueGetInput)
                 .on_submit(Message::SubmitValue)
                 .padding(20)
                 .id(iced::widget::text_input::Id::unique())
                 .size(30);
-                */
 
         column![
             text,
+            text_input,
             back_button,
             root_button,
             iced::widget::Column::with_children(some_vec),

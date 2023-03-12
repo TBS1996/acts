@@ -14,6 +14,7 @@ pub struct EditPage {
     pub activity: Activity,
     pub assigned: String,
     pub session_duration: String,
+    conn: Conn,
 }
 
 impl Page for EditPage {
@@ -22,26 +23,25 @@ impl Page for EditPage {
     }
 
     fn view(&self) -> Element<'static, Message> {
-        /*
-        let session_input: iced::widget::text_input::TextInput<'_, Message, Renderer> = text_input(
-            "New session",
-            &self.session_duration,
-            PageMessage::InputChanged,
-        )
-        .on_submit(self.maybe_add_session())
-        .padding(20)
-        .size(30);
+        let session_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
+            text_input("New session", &self.session_duration, |s| {
+                PageMessage::InputChanged((0, s)).into_message()
+            })
+            .on_submit(self.maybe_add_session())
+            .padding(20)
+            .size(30);
 
         let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
-            text_input("Edit name", &self.activity.text, Message::EditInputChanged)
-                .on_submit(Message::GoBack)
-                .padding(20)
-                .size(30);
-                */
+            text_input("Edit name", &self.activity.text, |s| {
+                PageMessage::InputChanged((1, s)).into_message()
+            })
+            .on_submit(MainMessage::GoBack.into_message())
+            .padding(20)
+            .size(30);
 
         column![
-            //   session_input,
-            //    text_input,
+            session_input,
+            text_input,
             button("go back to main").on_press(MainMessage::GoBack.into_message()),
             button("Delete").on_press(MainMessage::DeleteActivity(self.activity.id).into_message()),
         ]
@@ -52,36 +52,47 @@ impl Page for EditPage {
 
     fn update(&mut self, message: PageMessage) -> iced::Command<Message> {
         match message {
-            _ => Command::none(),
-        }
+            PageMessage::InputChanged((0, s)) => {
+                if s.is_empty() || s.parse::<u32>().is_ok() {
+                    self.session_duration = s;
+                }
+            }
+            PageMessage::InputChanged((1, s)) => {
+                self.activity.modify_text(s, &self.conn);
+            }
+            _ => {}
+        };
+        Command::none()
     }
 }
 
 impl EditPage {
-    pub fn new(conn: &Conn, id: ActID) -> Self {
+    pub fn new(conn: Conn, id: ActID) -> Self {
         Self {
-            activity: Activity::fetch_activity(conn, id).unwrap(),
+            activity: Activity::fetch_activity(&conn, id).unwrap(),
             assigned: String::default(),
             session_duration: String::default(),
+            conn,
         }
     }
 
     fn maybe_add_session(&self) -> Message {
         if self.session_duration.parse::<f64>().is_ok() {
-            return Message::Todo;
+            self.new_session();
         }
-        Message::Todo
+        MainMessage::GoBack.into_message()
     }
 
-    pub fn new_session(&self, conn: &Conn) {
+    pub fn new_session(&self) {
         let timestamp = crate::utils::current_unix().as_secs();
         let duration = self.session_duration.parse::<f64>().unwrap();
         let statement =
             "INSERT INTO history (id, duration, timestamp) VALUES (?1, ?2, ?3)".to_string();
-        conn.execute(
-            &statement,
-            rusqlite::params![self.activity.id, duration, timestamp],
-        )
-        .unwrap();
+        self.conn
+            .execute(
+                &statement,
+                rusqlite::params![self.activity.id, duration, timestamp],
+            )
+            .unwrap();
     }
 }

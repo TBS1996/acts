@@ -26,13 +26,32 @@ pub struct ValueGetter {
     pub title: String,
     pub input: String,
     pub id: ActID,
+    conn: Conn,
 }
 
 impl Page for ValueGetter {
     fn refresh(&mut self) {}
 
     fn update(&mut self, message: PageMessage) -> Command<Message> {
-        todo!()
+        match message {
+            PageMessage::ValueGetInput(s) => {
+                if s.parse::<u32>().is_ok() || s.is_empty() {
+                    self.input = s;
+                }
+            }
+            PageMessage::ValueSubmit => {
+                if self.input.parse::<u32>().is_ok() || self.input.is_empty() {
+                    let statement = format!(
+                        "UPDATE activities SET assigned = {} WHERE id = {}",
+                        self.input.clone(),
+                        self.id
+                    );
+                    self.conn.execute(&statement, []).unwrap();
+                }
+            }
+            _ => panic!(),
+        }
+        Command::none()
     }
 
     fn view(&self) -> Element<'static, Message> {
@@ -40,37 +59,31 @@ impl Page for ValueGetter {
             iced::widget::button(iced::widget::text::Text::new("Go back"))
                 .on_press(MainMessage::GoBack.into_message());
 
-        /*
-        let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> = text_input(
-            "wtf",
-            &self.input,
-            PageMessage::ValueGetInput.into_message(),
-        )
-        .on_submit(PageMessage::ValueSubmit.into_message())
-        .padding(20)
-        .id(iced::widget::text_input::Id::unique())
-        .size(30);
+        let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
+            text_input("wtf", &self.input, |s| {
+                PageMessage::ValueGetInput(s).into_message()
+            })
+            .on_submit(PageMessage::ValueSubmit.into_message())
+            .padding(20)
+            .id(iced::widget::text_input::Id::unique())
+            .size(30);
 
-        */
         let title = iced::Element::new(iced::widget::text::Text::new(self.title.clone()));
 
-        column![
-            back_button,
-            title,
-            //text_input
-        ]
-        .padding(20)
-        .align_items(Alignment::Center)
-        .into()
+        column![back_button, title, text_input]
+            .padding(20)
+            .align_items(Alignment::Center)
+            .into()
     }
 }
 
 impl ValueGetter {
-    pub fn new(title: String, id: ActID) -> Self {
+    pub fn new(conn: Conn, title: String, id: ActID) -> Self {
         Self {
             title,
             input: String::new(),
             id,
+            conn,
         }
     }
 }

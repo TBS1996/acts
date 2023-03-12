@@ -98,22 +98,19 @@ impl App {
     }
 
     fn main_view(&self) -> Element<'static, Message> {
-        /*
-        let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> = text_input(
-            "Add activity",
-            &self.textboxval,
-            Message::MainMessage(MainMessage::InputChanged),
-        )
-        .on_submit(MainMessage::AddActivity.into_message())
-        .padding(20)
-        .size(30);
+        let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
+            text_input("Add activity", &self.textboxval, |x| {
+                MainMessage::InputChanged(x).into_message()
+            })
+            .on_submit(MainMessage::AddActivity.into_message())
+            .padding(20)
+            .size(30);
 
-        */
         let refresh_button = button("Refresh").on_press(MainMessage::Refresh.into_message());
         let treeview_button = button("view tree").on_press(MainMessage::NewTreeView.into_message());
 
         column![
-            //   text_input,
+            text_input,
             row![refresh_button, treeview_button],
             Column::with_children(self.view_activities())
         ]
@@ -143,6 +140,7 @@ pub enum MainMessage {
     NewTreeView,
     NewAssign(ActID),
     NewEdit(ActID),
+    ChooseParent { child: ActID },
 }
 
 impl MainMessage {
@@ -154,11 +152,10 @@ impl MainMessage {
 /// Messages that are handled in the last page of the pages-vector.
 #[derive(Debug, Clone)]
 pub enum PageMessage {
-    InputChanged(String),
+    InputChanged((usize, String)),
     PickAct(Option<ActID>),
     ValueSubmit,
     ValueGetInput(String),
-    ChooseParent { child: ActID },
 }
 
 impl PageMessage {
@@ -173,29 +170,6 @@ pub enum Message {
     PageMessage(PageMessage),
     InputChanged(String),
     Todo,
-    /*
-    MainAssigned(String),
-    MainNewSession(ActID),
-    MainRefresh,
-
-    EditGotoMain,
-    EditInputChanged(String),
-    EditAssignInput(String),
-    EditSessionInput(String),
-    EditAddSession,
-    EditAddAssign,
-
-    GoToTree,
-    PickAct(Option<ActID>),
-    ChooseParent { child: ActID },
-
-    GoBack,
-    SubmitValue,
-    ValueGetInput(String),
-    GoAssign(ActID),
-    DeleteActivity,
-    InputChangeIndexed(usize, String),
-    */
 }
 
 impl Application for App {
@@ -227,12 +201,16 @@ impl Application for App {
                     self.page.pop();
                 }
                 MainMessage::NewEdit(id) => {
-                    let x = Box::new(EditPage::new(&self.conn, id));
+                    let x = Box::new(EditPage::new(self.conn.clone(), id));
                     self.page.push(x);
                 }
 
                 MainMessage::NewAssign(id) => {
-                    let x = Box::new(ValueGetter::new("assign some stuff".to_string(), id));
+                    let x = Box::new(ValueGetter::new(
+                        self.conn.clone(),
+                        "assign some stuff".to_string(),
+                        id,
+                    ));
                     self.page.push(x);
                 }
                 MainMessage::NewTreeView => {
@@ -254,10 +232,15 @@ impl Application for App {
                 MainMessage::InputChanged(val) => {
                     self.textboxval = val;
                 }
+                MainMessage::ChooseParent { child } => {
+                    let x = Box::new(Picker::new(self.conn.clone(), child))));
+                }
             },
             Message::PageMessage(pagemsg) => {
                 if let Some(page) = self.page.last_mut() {
                     return page.update(pagemsg);
+                } else {
+                    panic!("ey");
                 }
             }
             Message::Todo => panic!(),
