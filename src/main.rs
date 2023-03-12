@@ -32,45 +32,23 @@ mod utils;
 
 use crate::activity::Activity;
 use crate::pages::editpage::EditPage;
+use crate::pages::Page;
 
 type Conn = rusqlite::Connection;
 type ActID = usize;
 
-#[derive(Debug)]
 pub struct App {
     conn: Conn,
     textboxval: String,
     activities: Vec<Activity>,
-    page: Page,
-}
-
-#[derive(Default, Debug)]
-pub enum Page {
-    #[default]
-    Main,
-    Edit(EditPage),
-    TreeView(TreeView),
-}
-
-impl Page {
-    pub fn is_main(&self) -> bool {
-        matches!(self, Self::Main)
-    }
-
-    pub fn is_edit(&self) -> bool {
-        matches!(self, Self::Edit(_))
-    }
-
-    pub fn refresh(&mut self, conn: &Conn) {
-        match self {
-            Self::Main => {}
-            Self::Edit(editview) => editview.refresh(conn),
-            Self::TreeView(tree) => tree.refresh(conn),
-        }
-    }
+    page: Vec<Box<dyn Page>>,
 }
 
 impl App {
+    fn last_page(&mut self) -> Option<&mut Box<dyn Page>> {
+        self.page.last_mut()
+    }
+
     fn view_activities(&self) -> Vec<Element<'static, Message>> {
         let acts = Self::view_by_priority(&self);
 
@@ -79,7 +57,7 @@ impl App {
         for act in acts {
             let button: iced::widget::button::Button<Message> =
                 iced::widget::button(iced::widget::text::Text::new(act.display_flat(&self.conn)))
-                    .on_press(Message::EditActivity(act.id));
+                    .on_press(Message::MainMessage(MainMessage::EditActivity(act.id)));
             let row = iced::Element::new(iced::widget::row![button]);
             wtf.push(row);
         }
@@ -119,16 +97,22 @@ impl App {
     }
 
     fn main_view(&self) -> Element<'static, Message> {
-        let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
-            text_input("Add activity", &self.textboxval, Message::MainInputChanged)
-                .on_submit(Message::MainAddActivity)
-                .padding(20)
-                .size(30);
-        let refresh_button = button("Refresh").on_press(Message::MainRefresh);
-        let treeview_button = button("view tree").on_press(Message::GoToTree);
+        /*
+        let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> = text_input(
+            "Add activity",
+            &self.textboxval,
+            Message::MainMessage(MainMessage::InputChanged),
+        )
+        .on_submit(MainMessage::AddActivity.into_message())
+        .padding(20)
+        .size(30);
+
+        */
+        let refresh_button = button("Refresh").on_press(MainMessage::Refresh.into_message());
+        let treeview_button = button("view tree").on_press(MainMessage::NewTreeView.into_message());
 
         column![
-            text_input,
+            //   text_input,
             row![refresh_button, treeview_button],
             Column::with_children(self.view_activities())
         ]
@@ -141,20 +125,52 @@ impl App {
         self.activities = Activity::fetch_all_activities(&self.conn);
         self.textboxval = String::new();
         Activity::normalize_assignments(&self.conn);
-        self.page.refresh(&self.conn);
+        for page in self.page.iter_mut() {
+            page.refresh();
+        }
+    }
+}
+
+/// Messages that are handled in main.rs
+#[derive(Debug, Clone)]
+pub enum MainMessage {
+    GoBack,
+    Refresh,
+    DeleteActivity(ActID),
+    EditActivity(ActID),
+    AddActivity,
+    InputChanged(String),
+    NewTreeView,
+}
+
+impl MainMessage {
+    pub fn into_message(self) -> Message {
+        Message::MainMessage(self)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum PageMessage {
+    InputChanged(String),
+}
+
+impl PageMessage {
+    pub fn into_message(self) -> Message {
+        Message::PageMessage(self)
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    MainInputChanged(String),
+    MainMessage(MainMessage),
+    PageMessage(PageMessage),
+    InputChanged(String),
+    Todo,
+    /*
     MainAssigned(String),
-    MainAddActivity,
-    EditActivity(ActID),
     MainNewSession(ActID),
     MainRefresh,
 
-    EditDeleteActivity(ActID),
     EditGotoMain,
     EditInputChanged(String),
     EditAssignInput(String),
@@ -170,7 +186,9 @@ pub enum Message {
     SubmitValue,
     ValueGetInput(String),
     GoAssign(ActID),
+    DeleteActivity,
     InputChangeIndexed(usize, String),
+    */
 }
 
 impl Application for App {
@@ -186,7 +204,7 @@ impl Application for App {
             conn,
             textboxval: String::new(),
             activities,
-            page: Page::default(),
+            page: vec![],
         };
         (app, Command::none())
     }
@@ -196,133 +214,148 @@ impl Application for App {
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
-        match &mut self.page {
-            Page::Main => match message {
-                Message::EditActivity(id) => {
-                    self.page = Page::Edit(EditPage::new(&self.conn, id));
+        match message {
+            Message::MainMessage(mainmsg) => match mainmsg {
+                MainMessage::GoBack => {
+                    self.page.pop();
                 }
-                Message::MainInputChanged(x) => {
-                    self.textboxval = x;
-                }
-
-                Message::MainAddActivity => {
-                    let x: String = std::mem::take(&mut self.textboxval);
-                    let activity = Activity::new(&self.conn, x);
-                    sql::new_activity(&self.conn, &activity).unwrap();
-                    self.activities.push(activity);
-                    self.refresh();
-                }
-                Message::MainRefresh => {
-                    self.refresh();
-                }
-                Message::GoToTree => {
-                    self.page = Page::TreeView(TreeView::new(&self.conn));
-                }
-
-                _ => {
-                    panic!("you forgot to add {:?} to this match arm", message)
-                }
+                _ => {}
             },
-            Page::Edit(editor) => match message {
-                Message::EditDeleteActivity(id) => {
-                    Activity::delete_activity(&self.conn, id);
-                    self.page = Page::Main;
-                    self.refresh();
+            Message::PageMessage(pagemsg) => {
+                if let Some(page) = self.page.last_mut() {
+                    return page.update(pagemsg);
                 }
-
-                Message::EditAddSession => {
-                    editor.new_session(&self.conn);
-                    self.page = Page::Main;
-                    self.refresh();
-                }
-
-                Message::EditAssignInput(text) => {
-                    if text.is_empty() || text.parse::<f64>().is_ok() {
-                        editor.assigned = text;
-                    }
-                }
-                Message::EditAddAssign => {
-                    if let Ok(num) = editor.assigned.parse::<u32>() {
-                        let statement = format!(
-                            "UPDATE activities SET assigned = {} WHERE id = {}",
-                            num, editor.activity.id
-                        );
-                        self.conn.execute(&statement, []).unwrap();
-                    }
-                }
-
-                Message::EditGotoMain => {
-                    self.page = Page::Main;
-                    self.refresh();
-                }
-
-                Message::EditInputChanged(text) => {
-                    editor.activity.modify_text(text, &self.conn);
-                }
-                Message::EditSessionInput(text) => {
-                    if text.is_empty() || text.parse::<f64>().is_ok() {
-                        editor.session_duration = text;
-                    }
-                }
-                _ => {
-                    panic!("you forgot to add {:?} to this match arm", message)
-                }
-            },
-            Page::TreeView(tree) => match (&tree.picker, message) {
-                (None, Message::GoBack) if tree.edit_assignment.is_some() => {
-                    tree.edit_assignment = None;
-                    self.refresh();
-                }
-                (None, Message::GoBack) => {
-                    self.page = Page::Main;
-                    self.refresh();
-                }
-                (Some(_), Message::GoBack) => {
-                    tree.picker = None;
-                    self.refresh();
-                }
-                (Some(x), Message::PickAct(id)) => {
-                    Activity::set_parent(&self.conn, x.0, id);
-                    tree.picker = None;
-                    self.refresh();
-                }
-                (None, Message::EditActivity(id)) => {
-                    self.page = Page::Edit(EditPage::new(&self.conn, id));
-                }
-                (None, Message::ChooseParent { child }) => {
-                    tree.picker = Some((child, Picker::new(&self.conn)))
-                }
-                (None, Message::GoAssign(id)) => {
-                    let x = ValueGetter::new("assign some stuff".to_string(), id);
-                    tree.edit_assignment = Some(x);
-                }
-                (_, Message::ValueGetInput(val)) => {
-                    if val.is_empty() || val.parse::<u32>().is_ok() {
-                        if let Some(x) = tree.edit_assignment.as_mut() {
-                            x.input = val;
-                        }
-                    }
-                }
-                (_, Message::SubmitValue) => {
-                    if let Some(x) = tree.edit_assignment.as_ref() {
-                        if let Ok(val) = x.input.parse::<u32>() {
-                            sql::set_assigned(&self.conn, x.id, val);
-                        }
-                    }
-                    tree.edit_assignment = None;
-                    self.refresh();
-                }
-                (_, _) => {}
-            },
+            }
+            Message::Todo => panic!(),
+            _ => panic!(),
         }
+
         Command::none()
     }
 
+    /*
+
+    if let Some(page) = self.page.last_mut() {
+        page.update(message)
+    } else {
+        match &message {
+            Message::GoBack => {
+                self.page.pop();
+                Command::none()
+            }
+            Message::MainAddActivity => {
+                let x: String = std::mem::take(&mut self.textboxval);
+                let activity = Activity::new(&self.conn, x);
+                sql::new_activity(&self.conn, &activity).unwrap();
+                self.activities.push(activity);
+                self.refresh();
+                Command::none()
+            }
+
+            Message::EditActivity(id) => {
+                let x = Box::new(EditPage::new(&self.conn, *id));
+                self.page.push(x);
+                Command::none()
+            }
+
+            _ => Command::none(),
+        }
+        */
+
+    /*
+
+
+    match &message {
+            Message::EditActivity(id) => {
+                self.page = Page::Edit(EditPage::new(&self.conn, id));
+            }
+            Message::MainInputChanged(x) => {
+                self.textboxval = x;
+            }
+
+            Message::MainRefresh => {
+                self.refresh();
+            }
+            Message::GoToTree => {
+                self.page = Page::TreeView(TreeView::new(&self.conn));
+            }
+
+            Message::EditDeleteActivity(id) => {
+                Activity::delete_activity(&self.conn, id);
+                self.page = Page::Main;
+                self.refresh();
+            }
+
+            Message::EditAddSession => {
+                editor.new_session(&self.conn);
+                self.page = Page::Main;
+                self.refresh();
+            }
+
+            Message::EditAssignInput(text) => {
+                if text.is_empty() || text.parse::<f64>().is_ok() {
+                    editor.assigned = text;
+                }
+            }
+            Message::EditAddAssign => {
+                if let Ok(num) = editor.assigned.parse::<u32>() {
+                    let statement = format!(
+                        "UPDATE activities SET assigned = {} WHERE id = {}",
+                        num, editor.activity.id
+                    );
+                    self.conn.execute(&statement, []).unwrap();
+                }
+            }
+
+            Message::EditGotoMain => {
+                self.page = Page::Main;
+                self.refresh();
+            }
+
+            Message::EditInputChanged(text) => {
+                editor.activity.modify_text(text, &self.conn);
+            }
+            Message::EditSessionInput(text) => {
+                if text.is_empty() || text.parse::<f64>().is_ok() {
+                    editor.session_duration = text;
+                }
+            }
+            Message::PickAct(id) => {
+                Activity::set_parent(&self.conn, x.0, id);
+                tree.picker = None;
+                self.refresh();
+            }
+            Message::ChooseParent { child } => {
+                tree.picker = Some((child, Picker::new(&self.conn)));
+            }
+            Message::GoAssign(id) => {
+                let x = ValueGetter::new("assign some stuff".to_string(), id);
+                tree.edit_assignment = Some(x);
+            }
+            Message::ValueGetInput(val) => {
+                if val.is_empty() || val.parse::<u32>().is_ok() {
+                    if let Some(x) = tree.edit_assignment.as_mut() {
+                        x.input = val;
+                    }
+                }
+            }
+            Message::SubmitValue) => {
+                if let Some(x) = tree.edit_assignment.as_ref() {
+                    if let Ok(val) = x.input.parse::<u32>() {
+                        sql::set_assigned(&self.conn, x.id, val);
+                    }
+                }
+                tree.edit_assignment = None;
+                self.refresh();
+    };
+    Command::none()
+        */
+
     fn view(&self) -> Element<Message> {
-        match &self.page {
-            Page::Main => self.main_view(),
-            Page::Edit(page) => page.view(),
-            Page::TreeView(page) => page.view_activities(&self.conn),
+        if let Some(page) = self.page.last() {
+            page.view()
+        } else {
+            self.main_view()
         }
     }
 }

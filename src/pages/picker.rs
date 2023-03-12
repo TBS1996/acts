@@ -25,7 +25,7 @@ impl Picker {
 
         for act in &self.activities {
             let actbutton: iced::widget::button::Button<Message> =
-                iced::widget::button(iced::widget::text::Text::new(act.text.clone()))
+                iced::widgetEditGotoMain::button(iced::widget::text::Text::new(act.text.clone()))
                     .on_press(Message::PickAct(Some(act.id)));
             let row = iced::Element::new(iced::widget::row![actbutton]);
             some_vec.push(row);
