@@ -1,5 +1,6 @@
 use crate::pages::treeview::TreeView;
 use iced::widget::{button, column, pick_list, row, text_input};
+use pages::assignments::Assignments;
 use std::rc::Rc;
 
 use iced::widget::Column;
@@ -141,6 +142,7 @@ pub enum MainMessage {
     NewAssign(ActID),
     NewEdit(ActID),
     ChooseParent { child: ActID },
+    NoOp,
 }
 
 impl MainMessage {
@@ -156,6 +158,7 @@ pub enum PageMessage {
     PickAct(Option<ActID>),
     ValueSubmit,
     ValueGetInput(String),
+    Adjust,
 }
 
 impl PageMessage {
@@ -206,11 +209,8 @@ impl Application for App {
                 }
 
                 MainMessage::NewAssign(id) => {
-                    let x = Box::new(ValueGetter::new(
-                        self.conn.clone(),
-                        "assign some stuff".to_string(),
-                        id,
-                    ));
+                    let parent = Activity::get_parent(&self.conn, id).map(|act| act.id);
+                    let x = Box::new(Assignments::new(self.conn.clone(), parent));
                     self.page.push(x);
                 }
                 MainMessage::NewTreeView => {
@@ -233,8 +233,10 @@ impl Application for App {
                     self.textboxval = val;
                 }
                 MainMessage::ChooseParent { child } => {
-                    let x = Box::new(Picker::new(self.conn.clone(), child))));
+                    let x = Box::new(Picker::new(self.conn.clone(), child));
+                    self.page.push(x);
                 }
+                MainMessage::NoOp => {}
             },
             Message::PageMessage(pagemsg) => {
                 if let Some(page) = self.page.last_mut() {

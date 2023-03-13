@@ -1,4 +1,5 @@
 //pub mod assignments;
+pub mod assignments;
 pub mod editpage;
 pub mod picker;
 pub mod treeview;
