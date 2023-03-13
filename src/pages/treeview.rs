@@ -8,17 +8,17 @@ use crate::Message;
 use crate::Page;
 use crate::PageMessage;
 
-use iced::widget::{column, pick_list, text_input, Column};
-use iced::Renderer;
+use crate::IntoMessage;
 
-use iced::{Alignment, Element, Sandbox};
+use iced::widget::Column;
+
+use iced::{Alignment, Element};
 
 use super::picker::Picker;
 use super::ValueGetter;
 
 #[derive(Debug)]
 pub struct TreeView {
-    activities: Vec<Activity>,
     pub picker: Option<(ActID, Picker)>,
     pub edit_assignment: Option<ValueGetter>,
     conn: Conn,
@@ -26,7 +26,7 @@ pub struct TreeView {
 
 impl Page for TreeView {
     fn refresh(&mut self) {}
-    fn update(&mut self, message: PageMessage) -> iced::Command<Message> {
+    fn update(&mut self, _message: PageMessage) -> iced::Command<Message> {
         todo!()
     }
     fn view(&self) -> Element<'static, Message> {
@@ -36,7 +36,7 @@ impl Page for TreeView {
             iced::widget::button(iced::widget::text::Text::new("Go back"))
                 .on_press(MainMessage::GoBack.into_message());
 
-        column![back_button, Column::with_children(some_vec)]
+        iced::widget::column![back_button, Column::with_children(some_vec)]
             .padding(20)
             .align_items(Alignment::Center)
             .into()
@@ -45,9 +45,7 @@ impl Page for TreeView {
 
 impl TreeView {
     pub fn new(conn: Conn) -> Self {
-        let activities = Activity::fetch_all_activities(&conn);
         Self {
-            activities,
             picker: None,
             edit_assignment: None,
             conn,
@@ -72,7 +70,7 @@ impl TreeView {
                 //let elm = iced::Element::new(iced::widget::text::Text::new(kid.display(conn)));
 
                 let assigned: iced::widget::button::Button<Message> = iced::widget::button(
-                    iced::widget::text::Text::new(format!("{}%", kid.assigned.to_string())),
+                    iced::widget::text::Text::new(format!("{}%", kid.assigned)),
                 )
                 .on_press(MainMessage::NewAssign(kid.id).into_message());
 

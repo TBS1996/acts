@@ -4,11 +4,6 @@ use crate::Conn;
 
 const PATH: &str = "mydb.db";
 
-pub enum TableNames {
-    Activities,
-    History,
-}
-
 pub fn get_card_qty(conn: &Conn) -> usize {
     let statement = "SELECT COUNT(*) FROM activities";
 
@@ -81,7 +76,7 @@ pub fn init() -> Conn {
 }
 
 pub fn new_activity(conn: &Conn, activity: &Activity) -> Result<(), rusqlite::Error> {
-    let sibqty = get_kid_qty(conn, &activity.parent);
+    let _sibqty = get_kid_qty(conn, &activity.parent);
     //let assigned = if sibqty > 0 { 1. / (sibqty as f32) } else { 1. };
     let assigned = 50;
     conn.execute(

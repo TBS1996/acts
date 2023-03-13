@@ -5,9 +5,10 @@ use crate::Conn;
 use crate::MainMessage;
 use crate::Message;
 use crate::PageMessage;
-use iced::widget::{column, Column};
 
-use iced::{Alignment, Element, Sandbox};
+use crate::IntoMessage;
+
+use iced::{Alignment, Element};
 
 use super::Page;
 
@@ -21,7 +22,7 @@ pub struct Picker {
 impl Page for Picker {
     fn refresh(&mut self) {}
 
-    fn update(&mut self, message: PageMessage) -> iced::Command<Message> {
+    fn update(&mut self, _message: PageMessage) -> iced::Command<Message> {
         panic!()
     }
 
@@ -47,7 +48,7 @@ impl Page for Picker {
                 .on_press(MainMessage::GoBack.into_message());
         let text = iced::Element::new(iced::widget::text::Text::new("pick an activity!"));
 
-        column![
+        iced::widget::column![
             text,
             back_button,
             root_button,

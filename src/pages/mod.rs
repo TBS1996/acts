@@ -4,8 +4,9 @@ pub mod editpage;
 pub mod picker;
 pub mod treeview;
 
+use crate::IntoMessage;
 use crate::MainMessage;
-use iced::{Alignment, Command, Element, Renderer, Sandbox, Settings};
+use iced::{Alignment, Command, Element, Renderer};
 
 pub trait Page {
     fn refresh(&mut self);
@@ -17,11 +18,8 @@ pub trait Page {
 
 use std::fmt::Debug;
 
-use crate::pages::treeview::TreeView;
 use crate::{ActID, Conn, Message, PageMessage};
-use iced::widget::{button, column, pick_list, row, text, text_input};
-
-use iced::widget::Column;
+use iced::widget::text_input;
 
 pub struct ValueGetter {
     pub title: String,
@@ -71,7 +69,7 @@ impl Page for ValueGetter {
 
         let title = iced::Element::new(iced::widget::text::Text::new(self.title.clone()));
 
-        column![back_button, title, text_input]
+        iced::widget::column![back_button, title, text_input]
             .padding(20)
             .align_items(Alignment::Center)
             .into()
@@ -79,7 +77,7 @@ impl Page for ValueGetter {
 }
 
 impl ValueGetter {
-    pub fn new(conn: Conn, title: String, id: ActID) -> Self {
+    pub fn _new(conn: Conn, title: String, id: ActID) -> Self {
         Self {
             title,
             input: String::new(),

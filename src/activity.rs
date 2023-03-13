@@ -128,7 +128,7 @@ impl Activity {
     }
 
     pub fn new(conn: &Conn, text: String) -> Self {
-        let id = sql::get_card_qty(&conn);
+        let id = sql::get_card_qty(conn);
         Self {
             id,
             text,
@@ -147,12 +147,6 @@ impl Activity {
         )
     }
 
-    pub fn display(&self, conn: &Conn) -> String {
-        // let assigned = Activity::get_true_assigned(conn, self.id);
-
-        format!("{}% | {}", self.assigned, &self.text,)
-    }
-
     pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {
         let total = crate::history::Session::total_weighted_time_all_activities(conn);
         let time_spent = crate::history::Session::total_weighted_time_spent_from_activity(conn, id);
@@ -162,27 +156,8 @@ impl Activity {
         Activity::get_true_assigned(conn, id) / ratio
     }
 
-    fn push_child(child: Activity, activities: &mut Vec<Activity>, parent: Option<ActID>) {
-        match parent {
-            Some(parent) => {
-                for activity in activities {
-                    if activity.id == parent {
-                        activity.children.push(child);
-                        return;
-                    }
-                }
-            }
-            None => activities.push(child),
-        };
-    }
-
     pub fn fetch_activity(conn: &Conn, id: ActID) -> Result<Activity, rusqlite::Error> {
         sql::query_row(conn, &Activity::query_id(id), |row| Self::try_from(row))
-    }
-
-    pub fn fetch_activity_by_condition(conn: &Conn, condition: &str) -> Activity {
-        let statement = format!("{} WHERE {}", Self::SELECT_QUERY, condition);
-        sql::query_row(conn, &statement, |row| Self::try_from(row)).unwrap()
     }
 
     pub fn assign_priorities(conn: &Conn, activities: &mut Vec<Activity>) {
@@ -193,36 +168,11 @@ impl Activity {
         Self::activity_walker_dfs(conn, activities, &mut f);
     }
 
-    pub fn fetch_all_activities(conn: &Conn) -> Vec<Activity> {
-        let mut activities = vec![];
-        Self::fetch_all_activities_helper(conn, &mut activities, None);
-        activities
-    }
-
     pub fn fetch_all_activities_flat(conn: &Conn) -> Vec<Activity> {
         sql::query_map(conn, Activity::SELECT_QUERY, |row: &rusqlite::Row| {
             Activity::try_from(row)
         })
         .unwrap()
-    }
-
-    fn fetch_all_activities_helper(
-        conn: &Conn,
-        activities: &mut Vec<Activity>,
-        parent: Option<ActID>,
-    ) {
-        let statement = Self::query_children(parent);
-        let the_activities = sql::query_map(conn, &statement, |row: &rusqlite::Row| {
-            Activity::try_from(row)
-        })
-        .unwrap();
-
-        for activity in the_activities {
-            let parent = activity.parent;
-            let id = activity.id;
-            Self::push_child(activity, activities, parent);
-            Self::fetch_all_activities_helper(conn, activities, Some(id));
-        }
     }
 
     pub fn delete_activity(conn: &Conn, id: ActID) {

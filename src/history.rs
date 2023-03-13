@@ -4,7 +4,7 @@ use crate::Conn;
 
 #[derive(Debug)]
 pub struct Session {
-    id: ActID,
+    _id: ActID,
     duration: std::time::Duration,
     timestamp: u64,
 }
@@ -14,8 +14,8 @@ impl std::convert::TryFrom<&rusqlite::Row<'_>> for Session {
 
     fn try_from(value: &rusqlite::Row) -> Result<Self, Self::Error> {
         Ok(Self {
-            id: value.get(0)?,
-            duration: std::time::Duration::from_secs_f64(value.get::<usize, f64>(1)? as f64 * 60.),
+            _id: value.get(0)?,
+            duration: std::time::Duration::from_secs_f64(value.get::<usize, f64>(1)? * 60.),
             timestamp: value.get(2)?,
         })
     }
@@ -61,7 +61,7 @@ impl Session {
     fn get_decay_factor_from_duration(duration: std::time::Duration) -> f32 {
         let days = duration.as_secs_f32() / 86400.;
 
-        std::f32::consts::E.powf((0.99 as f32).ln() * days)
+        std::f32::consts::E.powf(0.99f32.ln() * days)
     }
 }
 

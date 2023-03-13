@@ -4,13 +4,13 @@ use crate::PageMessage;
 
 use crate::sql;
 use crate::Conn;
+use crate::IntoMessage;
 use crate::MainMessage;
 use crate::Message;
 use iced::widget::text_input;
-use iced::widget::{column, Column};
 use iced::Renderer;
 
-use iced::{Alignment, Command, Element, Sandbox};
+use iced::{Alignment, Command, Element};
 
 use super::Page;
 
@@ -94,7 +94,7 @@ impl Page for Assignments {
             iced::widget::button(iced::widget::text::Text::new("Go back"))
                 .on_press(MainMessage::GoBack.into_message());
 
-        column![
+        iced::widget::column![
             title,
             diff,
             iced::widget::row![auto_adjust, submit_button],
@@ -115,11 +115,6 @@ impl Assignments {
             tot += activity.assigned as i32;
         }
         tot - 100
-    }
-
-    fn update_msg(&mut self) {
-        let diff = self.get_diff();
-        self.msg = format!("Current difference: {}", diff);
     }
 
     pub fn new(conn: Conn, parent: Option<ActID>) -> Self {

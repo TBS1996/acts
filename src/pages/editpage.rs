@@ -1,13 +1,14 @@
 use crate::activity::Activity;
 use crate::ActID;
 use crate::Conn;
+use crate::IntoMessage;
 use crate::MainMessage;
 use crate::Message;
 use crate::Page;
 use crate::PageMessage;
-use iced::widget::{button, column, text_input};
+use iced::widget::{button, text_input};
 
-use iced::{Alignment, Command, Element, Renderer, Sandbox};
+use iced::{Alignment, Command, Element, Renderer};
 
 #[derive(Debug)]
 pub struct EditPage {
@@ -39,7 +40,7 @@ impl Page for EditPage {
             .padding(20)
             .size(30);
 
-        column![
+        iced::widget::column![
             session_input,
             text_input,
             button("go back to main").on_press(MainMessage::GoBack.into_message()),
