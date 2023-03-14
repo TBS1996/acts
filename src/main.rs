@@ -1,12 +1,12 @@
 use crate::pages::treeview::TreeView;
-use iced::widget::{button, row, text_input};
+use iced::widget::{button, row};
 use pages::assignments::Assignments;
 use std::rc::Rc;
 
 use crate::pages::new_activity::NewActivity;
 
 use iced::widget::Column;
-use iced::{executor, Alignment, Application, Command, Element, Renderer, Settings};
+use iced::{executor, Alignment, Application, Command, Element, Settings};
 use pages::picker::Picker;
 
 pub fn main() -> iced::Result {

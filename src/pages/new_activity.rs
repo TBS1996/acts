@@ -1,7 +1,6 @@
-use iced::widget::{button, row, text_input};
+use iced::widget::text_input;
 
-use iced::widget::Column;
-use iced::{executor, Alignment, Application, Command, Element, Renderer, Settings};
+use iced::{Alignment, Command, Element, Renderer};
 
 use crate::ActID;
 use crate::IntoMessage;
