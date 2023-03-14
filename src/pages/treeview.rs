@@ -14,13 +14,8 @@ use iced::widget::Column;
 
 use iced::{Alignment, Element};
 
-use super::picker::Picker;
-use super::ValueGetter;
-
 #[derive(Debug)]
 pub struct TreeView {
-    pub picker: Option<(ActID, Picker)>,
-    pub edit_assignment: Option<ValueGetter>,
     conn: Conn,
 }
 
@@ -45,11 +40,7 @@ impl Page for TreeView {
 
 impl TreeView {
     pub fn new(conn: Conn) -> Self {
-        Self {
-            picker: None,
-            edit_assignment: None,
-            conn,
-        }
+        Self { conn }
     }
 
     fn view_recursive(&self) -> Vec<Element<'static, Message>> {
@@ -87,7 +78,7 @@ impl TreeView {
                     padding,
                     edit_button,
                     single_pad,
-                    assigned
+                    assigned,
                 ]);
                 elms.push(row);
                 recursive(conn, elms, Some(kid.id), depth + 1);

@@ -100,10 +100,11 @@ impl Activity {
 
     /// Queries children, but not recursively.
     pub fn fetch_children(conn: &Conn, parent: Option<ActID>) -> Vec<Activity> {
-        sql::query_map(conn, &Self::query_children(parent), |row| {
+        dbg!(&parent);
+        dbg!(sql::query_map(conn, &Self::query_children(parent), |row| {
             Activity::try_from(row)
         })
-        .unwrap()
+        .unwrap())
     }
 
     fn query_children(parent: Option<ActID>) -> String {
