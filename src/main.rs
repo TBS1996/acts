@@ -3,6 +3,8 @@ use iced::widget::{button, row, text_input};
 use pages::assignments::Assignments;
 use std::rc::Rc;
 
+use crate::pages::new_activity::NewActivity;
+
 use iced::widget::Column;
 use iced::{executor, Alignment, Application, Command, Element, Renderer, Settings};
 use pages::picker::Picker;
@@ -10,6 +12,7 @@ use pages::picker::Picker;
 pub fn main() -> iced::Result {
     std::env::set_var("RUST_BACKTRACE", "1");
 
+    /*
     let _guard =  sentry::init((
         "https://54319a6197f6416598c508efdd682c0a:f721ba6b7dbe49359e016a2104953411@o4504644012736512.ingest.sentry.io/4504751752937472",
         sentry::ClientOptions {
@@ -20,6 +23,7 @@ pub fn main() -> iced::Result {
             ..Default::default()
         },
     ));
+    */
 
     App::run(Settings::default())
 }
@@ -92,20 +96,13 @@ impl App {
     }
 
     fn main_view(&self) -> Element<'static, Message> {
-        let text_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
-            text_input("Add activity", &self.textboxval, |x| {
-                MainMessage::InputChanged(x).into_message()
-            })
-            .on_submit(MainMessage::AddActivity.into_message())
-            .padding(20)
-            .size(30);
-
+        let new_activity_button = button("Add activity")
+            .on_press(MainMessage::PageAddActivity { parent: None }.into_message());
         let refresh_button = button("Refresh").on_press(MainMessage::Refresh.into_message());
         let treeview_button = button("view tree").on_press(MainMessage::NewTreeView.into_message());
 
         iced::widget::column![
-            text_input,
-            row![refresh_button, treeview_button],
+            row![new_activity_button, refresh_button, treeview_button],
             Column::with_children(self.view_activities())
         ]
         .padding(20)
@@ -115,9 +112,6 @@ impl App {
 
     fn refresh(&mut self) {
         Activity::normalize_assignments(&self.conn);
-        for page in self.pages.iter_mut() {
-            page.refresh();
-        }
     }
 }
 
@@ -127,12 +121,14 @@ pub enum MainMessage {
     GoBack,
     Refresh,
     DeleteActivity(ActID),
-    AddActivity,
+    AddActivity { name: String, parent: Option<ActID> },
+    PageAddActivity { parent: Option<ActID> },
     InputChanged(String),
     NewTreeView,
     NewAssign(ActID),
     NewEdit(ActID),
     ChooseParent { child: ActID },
+    SetParent { child: ActID, parent: Option<ActID> },
     NoOp,
 }
 
@@ -198,12 +194,24 @@ impl Application for App {
         self.refresh();
         match message {
             Message::MainMessage(mainmsg) => match mainmsg {
+                MainMessage::PageAddActivity { parent } => {
+                    let x = Box::new(NewActivity::new(parent));
+                    self.pages.push(x);
+                }
                 MainMessage::GoBack => {
                     self.pages.pop();
                 }
                 MainMessage::NewEdit(id) => {
                     let x = Box::new(EditPage::new(self.conn.clone(), id));
                     self.pages.push(x);
+                }
+
+                MainMessage::SetParent { child, parent } => {
+                    // safe unwrap as || lazily evaluates from left to right.
+                    if parent.is_none() || parent.unwrap() != child {
+                        Activity::set_parent(&self.conn, child, parent);
+                    }
+                    self.pages.pop();
                 }
 
                 MainMessage::NewAssign(id) => {
@@ -218,11 +226,12 @@ impl Application for App {
                 MainMessage::Refresh => self.refresh(),
                 MainMessage::DeleteActivity(id) => {
                     Activity::delete_activity(&self.conn, id);
+                    self.pages.pop();
                 }
-                MainMessage::AddActivity => {
-                    let x: String = std::mem::take(&mut self.textboxval);
-                    let activity = Activity::new(&self.conn, x);
+                MainMessage::AddActivity { name, parent } => {
+                    let activity = Activity::new(&self.conn, name, parent);
                     sql::new_activity(&self.conn, &activity).unwrap();
+                    self.pages.pop();
                 }
                 MainMessage::InputChanged(val) => {
                     self.textboxval = val;
