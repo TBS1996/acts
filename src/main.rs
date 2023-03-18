@@ -115,9 +115,6 @@ impl App {
 
     fn refresh(&mut self) {
         Activity::normalize_assignments(&self.conn);
-        for page in self.pages.iter_mut() {
-            page.refresh();
-        }
     }
 }
 
