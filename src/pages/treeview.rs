@@ -6,7 +6,7 @@ use crate::Conn;
 use crate::MainMessage;
 use crate::Message;
 use crate::Page;
-use crate::PageMessage;
+
 
 use crate::IntoMessage;
 
@@ -20,10 +20,6 @@ pub struct TreeView {
 }
 
 impl Page for TreeView {
-    fn refresh(&mut self) {}
-    fn update(&mut self, _message: PageMessage) -> iced::Command<Message> {
-        todo!()
-    }
     fn view(&self) -> Element<'static, Message> {
         let some_vec = self.view_recursive();
 

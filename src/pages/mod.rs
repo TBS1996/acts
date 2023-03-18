@@ -1,6 +1,7 @@
 //pub mod assignments;
 pub mod assignments;
 pub mod editpage;
+pub mod new_activity;
 pub mod picker;
 pub mod treeview;
 
@@ -9,11 +10,11 @@ use crate::MainMessage;
 use iced::{Alignment, Command, Element, Renderer};
 
 pub trait Page {
-    fn refresh(&mut self);
-
     fn view(&self) -> Element<'static, Message>;
 
-    fn update(&mut self, message: PageMessage) -> Command<Message>;
+    fn update(&mut self, _message: PageMessage) -> Command<Message> {
+        panic!("");
+    }
 }
 
 use std::fmt::Debug;
@@ -29,8 +30,6 @@ pub struct ValueGetter {
 }
 
 impl Page for ValueGetter {
-    fn refresh(&mut self) {}
-
     fn update(&mut self, message: PageMessage) -> Command<Message> {
         match message {
             PageMessage::ValueGetInput(s) => {

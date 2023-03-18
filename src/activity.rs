@@ -100,11 +100,10 @@ impl Activity {
 
     /// Queries children, but not recursively.
     pub fn fetch_children(conn: &Conn, parent: Option<ActID>) -> Vec<Activity> {
-        dbg!(&parent);
-        dbg!(sql::query_map(conn, &Self::query_children(parent), |row| {
+        sql::query_map(conn, &Self::query_children(parent), |row| {
             Activity::try_from(row)
         })
-        .unwrap())
+        .unwrap()
     }
 
     fn query_children(parent: Option<ActID>) -> String {
@@ -128,14 +127,14 @@ impl Activity {
         self.text = text;
     }
 
-    pub fn new(conn: &Conn, text: String) -> Self {
+    pub fn new(conn: &Conn, text: String, parent: Option<ActID>) -> Self {
         let id = sql::get_card_qty(conn);
         Self {
             id,
             text,
             priority: 1.,
             assigned: 50,
-            parent: None,
+            parent,
             children: vec![],
         }
     }

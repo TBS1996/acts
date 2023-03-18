@@ -19,10 +19,6 @@ pub struct EditPage {
 }
 
 impl Page for EditPage {
-    fn refresh(&mut self) {
-        //*self = Self::new(conn, self.activity.id)
-    }
-
     fn view(&self) -> Element<'static, Message> {
         let session_input: iced::widget::text_input::TextInput<'_, Message, Renderer> =
             text_input("New session", &self.session_duration, |s| {
@@ -40,11 +36,19 @@ impl Page for EditPage {
             .padding(20)
             .size(30);
 
+        let child_button = button("Add new child").on_press(
+            MainMessage::PageAddActivity {
+                parent: Some(self.activity.id),
+            }
+            .into_message(),
+        );
+
         iced::widget::column![
             session_input,
             text_input,
             button("go back to main").on_press(MainMessage::GoBack.into_message()),
             button("Delete").on_press(MainMessage::DeleteActivity(self.activity.id).into_message()),
+            child_button,
         ]
         .padding(20)
         .align_items(Alignment::Center)

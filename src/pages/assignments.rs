@@ -22,8 +22,6 @@ pub struct Assignments {
 }
 
 impl Page for Assignments {
-    fn refresh(&mut self) {}
-
     fn update(&mut self, message: crate::PageMessage) -> iced::Command<Message> {
         match message {
             PageMessage::InputChanged((idx, s)) => {

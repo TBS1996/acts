@@ -72,6 +72,13 @@ pub fn init() -> Conn {
             ";
     execute(&conn, statement).unwrap();
 
+    let statement = "CREATE TABLE IF NOT EXISTS calendar (
+            day INTEGER,
+            plan TEXT NOT NULL
+            )
+            ";
+    execute(&conn, statement).unwrap();
+
     conn
 }
 
