@@ -25,12 +25,14 @@ pub fn main() -> iced::Result {
     ));
     */
 
-    App::run(Settings::default())
+    //App::run(Settings::default())
+    todo!()
 }
 
 mod activity;
 mod history;
 mod pages;
+mod plan;
 mod sql;
 mod utils;
 
