@@ -72,6 +72,16 @@ pub fn init() -> Conn {
             ";
     execute(&conn, statement).unwrap();
 
+    let statement = "CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER,
+            desc TEXT NOT NULL,
+            last_done INTEGER NOT NULL,
+            frequency FLOAT NOT NULL,
+            half_life FLOAT
+            )
+            ";
+    execute(&conn, statement).unwrap();
+
     conn
 }
 

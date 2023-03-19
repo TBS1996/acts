@@ -98,11 +98,11 @@ impl App {
     fn main_view(&self) -> Element<'static, Message> {
         let new_activity_button = button("Add activity")
             .on_press(MainMessage::PageAddActivity { parent: None }.into_message());
-        let refresh_button = button("Refresh").on_press(MainMessage::Refresh.into_message());
+        //   let refresh_button = button("Refresh").on_press(MainMessage::Refresh.into_message());
         let treeview_button = button("view tree").on_press(MainMessage::NewTreeView.into_message());
 
         iced::widget::column![
-            row![new_activity_button, refresh_button, treeview_button],
+            row![new_activity_button, treeview_button].padding(10),
             Column::with_children(self.view_activities())
         ]
         .padding(20)
@@ -254,6 +254,10 @@ impl Application for App {
         }
 
         Command::none()
+    }
+
+    fn theme(&self) -> Self::Theme {
+        Self::Theme::Dark
     }
 
     fn view(&self) -> Element<Message> {
