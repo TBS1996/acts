@@ -96,7 +96,7 @@ impl EditPage {
         self.conn
             .execute(
                 &statement,
-                rusqlite::params![self.activity.id, duration, timestamp],
+                rusqlite::params![self.activity.id.to_string(), duration, timestamp],
             )
             .unwrap();
     }

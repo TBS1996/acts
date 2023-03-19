@@ -1,6 +1,7 @@
 use crate::sql;
 use crate::ActID;
 use crate::Conn;
+use uuid::{uuid, Uuid};
 
 #[derive(Clone, Debug)]
 pub struct Activity {
@@ -17,9 +18,12 @@ impl std::convert::TryFrom<&rusqlite::Row<'_>> for Activity {
 
     fn try_from(value: &rusqlite::Row) -> Result<Self, Self::Error> {
         Ok(Activity {
-            id: value.get(0).unwrap(),
+            id: Uuid::parse_str(&value.get::<usize, String>(0).unwrap()).unwrap(),
             text: value.get(1).unwrap(),
-            parent: value.get(2).unwrap(),
+            parent: value
+                .get::<usize, Option<String>>(2)
+                .unwrap()
+                .map(|p| Uuid::parse_str(&p).unwrap()),
             assigned: value.get::<usize, u32>(3).unwrap(),
             priority: 1.,
             children: vec![],
@@ -52,7 +56,7 @@ impl Activity {
     }
 
     fn query_id(id: ActID) -> String {
-        format!("{} WHERE id = {}", Self::SELECT_QUERY, id)
+        format!("{} WHERE id = '{}'", Self::SELECT_QUERY, id)
     }
 
     pub fn get_parent_index(conn: &Conn, id: ActID) -> Option<ActID> {
@@ -76,11 +80,11 @@ impl Activity {
                 }
 
                 format!(
-                    "UPDATE activities SET parent = {} WHERE id = {}",
+                    "UPDATE activities SET parent = {} WHERE id = '{}'",
                     parent, child
                 )
             }
-            None => format!("UPDATE activities SET parent = NULL WHERE id = {}", child),
+            None => format!("UPDATE activities SET parent = NULL WHERE id = '{}'", child),
         };
 
         sql::execute(conn, &statement).unwrap();
@@ -108,7 +112,7 @@ impl Activity {
 
     fn query_children(parent: Option<ActID>) -> String {
         match parent {
-            Some(id) => format!("{} WHERE parent = {}", Self::SELECT_QUERY, id),
+            Some(id) => format!("{} WHERE parent = '{}'", Self::SELECT_QUERY, id),
             None => format!("{} WHERE parent IS NULL", Self::SELECT_QUERY),
         }
     }
@@ -128,7 +132,7 @@ impl Activity {
     }
 
     pub fn new(conn: &Conn, text: String, parent: Option<ActID>) -> Self {
-        let id = sql::get_card_qty(conn);
+        let id = Uuid::new_v4();
         Self {
             id,
             text,

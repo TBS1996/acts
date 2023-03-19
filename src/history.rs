@@ -1,6 +1,7 @@
 use crate::sql;
 use crate::ActID;
 use crate::Conn;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Session {
@@ -14,7 +15,7 @@ impl std::convert::TryFrom<&rusqlite::Row<'_>> for Session {
 
     fn try_from(value: &rusqlite::Row) -> Result<Self, Self::Error> {
         Ok(Self {
-            _id: value.get(0)?,
+            _id: Uuid::parse_str(&value.get::<usize, String>(0)?).unwrap(),
             duration: std::time::Duration::from_secs_f64(value.get::<usize, f64>(1)? * 60.),
             timestamp: value.get(2)?,
         })
@@ -26,7 +27,7 @@ impl Session {
 
     pub fn get_history(conn: &Conn, id: ActID) -> Vec<Session> {
         let statement = format!(
-            "{}  WHERE id = {} ORDER BY timestamp",
+            "{}  WHERE id = '{}' ORDER BY timestamp",
             Self::SELECT_QUERY,
             id
         );

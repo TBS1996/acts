@@ -1,6 +1,7 @@
 use crate::activity::Activity;
 use crate::ActID;
 use crate::Conn;
+use uuid::Uuid;
 
 const PATH: &str = "mydb.db";
 
@@ -38,13 +39,13 @@ pub fn execute(conn: &Conn, statement: &str) -> Result<(), rusqlite::Error> {
 }
 
 pub fn delete_activity(conn: &Conn, id: ActID) {
-    let statement = format!("DELETE FROM activities WHERE id = {}", id);
+    let statement = format!("DELETE FROM activities WHERE id = '{}'", id);
     execute(conn, &statement).unwrap();
 }
 
 pub fn set_assigned(conn: &Conn, id: ActID, assigned: u32) {
     let statement = format!(
-        "UPDATE activities SET assigned = {} WHERE id = {}",
+        "UPDATE activities SET assigned = {} WHERE id = '{}'",
         assigned, id
     );
     execute(conn, &statement).unwrap();
@@ -54,9 +55,9 @@ pub fn init() -> Conn {
     let conn = std::rc::Rc::new(rusqlite::Connection::open(PATH).unwrap());
 
     let statement = "CREATE TABLE IF NOT EXISTS activities (
-            id INTEGER PRIMARY KEY,
+            id TEXT NOT NULL,
             text TEXT NOT NULL,
-            parent INTEGER,
+            parent TEXT,
             assigned INTEGER NOT NULL,
             FOREIGN KEY (parent) REFERENCES activities (id)
             )
@@ -81,7 +82,12 @@ pub fn new_activity(conn: &Conn, activity: &Activity) -> Result<(), rusqlite::Er
     let assigned = 50;
     conn.execute(
         "INSERT INTO activities (id, text, parent, assigned) VALUES (?1, ?2, ?3, ?4)",
-        (&activity.id, &activity.text, &activity.parent, assigned),
+        (
+            activity.id.to_string(),
+            &activity.text,
+            activity.parent.map(|p| p.to_string()),
+            assigned,
+        ),
     )?;
 
     Ok(())

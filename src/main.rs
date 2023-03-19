@@ -38,9 +38,10 @@ mod utils;
 use crate::activity::Activity;
 use crate::pages::editpage::EditPage;
 use crate::pages::Page;
+use uuid::Uuid;
 
 type Conn = Rc<rusqlite::Connection>;
-type ActID = usize;
+type ActID = Uuid;
 
 pub struct App {
     conn: Conn,
