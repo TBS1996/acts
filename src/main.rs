@@ -25,8 +25,7 @@ pub fn main() -> iced::Result {
     ));
     */
 
-    //App::run(Settings::default())
-    todo!()
+    App::run(Settings::default())
 }
 
 mod activity;
