@@ -24,7 +24,7 @@ pub fn get_card_qty(conn: &Conn) -> usize {
 pub fn get_kid_qty(conn: &Conn, parent: &Option<ActID>) -> usize {
     let statement = match parent {
         Some(id) => {
-            format!("SELECT COUNT(*) FROM activities WHERE parent = {}", id)
+            format!("SELECT COUNT(*) FROM activities WHERE parent = '{}'", id)
         }
         None => "SELECT COUNT(*) FROM activities WHERE parent IS NULL".to_string(),
     };
@@ -45,7 +45,7 @@ pub fn delete_activity(conn: &Conn, id: ActID) {
 
 pub fn set_assigned(conn: &Conn, id: ActID, assigned: u32) {
     let statement = format!(
-        "UPDATE activities SET assigned = {} WHERE id = '{}'",
+        "UPDATE activities SET assigned = '{}' WHERE id = '{}'",
         assigned, id
     );
     execute(conn, &statement).unwrap();

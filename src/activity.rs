@@ -80,7 +80,7 @@ impl Activity {
                 }
 
                 format!(
-                    "UPDATE activities SET parent = {} WHERE id = '{}'",
+                    "UPDATE activities SET parent = '{}' WHERE id = '{}'",
                     parent, child
                 )
             }
@@ -119,7 +119,7 @@ impl Activity {
 
     fn update_text(conn: &Conn, id: ActID, text: &String) -> Result<(), rusqlite::Error> {
         let statement = format!(
-            "UPDATE activities SET text = \"{}\" WHERE id = {}",
+            "UPDATE activities SET text = \"{}\" WHERE id = '{}'",
             text, id
         );
 

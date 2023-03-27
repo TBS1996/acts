@@ -40,7 +40,7 @@ impl Page for ValueGetter {
             PageMessage::ValueSubmit => {
                 if self.input.parse::<u32>().is_ok() || self.input.is_empty() {
                     let statement = format!(
-                        "UPDATE activities SET assigned = {} WHERE id = {}",
+                        "UPDATE activities SET assigned = '{}' WHERE id = '{}'",
                         self.input.clone(),
                         self.id
                     );

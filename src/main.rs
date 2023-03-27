@@ -12,18 +12,16 @@ use pages::picker::Picker;
 pub fn main() -> iced::Result {
     std::env::set_var("RUST_BACKTRACE", "1");
 
-    /*
     let _guard =  sentry::init((
         "https://54319a6197f6416598c508efdd682c0a:f721ba6b7dbe49359e016a2104953411@o4504644012736512.ingest.sentry.io/4504751752937472",
         sentry::ClientOptions {
-            release: sentry::release_name!(),
+            release: Some("0.1".into()),
             traces_sample_rate: 1.0,
             enable_profiling: true,
             profiles_sample_rate: 1.0,
             ..Default::default()
         },
     ));
-    */
 
     App::run(Settings::default())
 }
