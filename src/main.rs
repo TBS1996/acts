@@ -12,6 +12,13 @@ use pages::picker::Picker;
 pub fn main() -> iced::Result {
     std::env::set_var("RUST_BACKTRACE", "1");
 
+    /*
+    let subscriber = tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(sentry_tracing::layer());
+
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     let _guard =  sentry::init((
         "https://54319a6197f6416598c508efdd682c0a:f721ba6b7dbe49359e016a2104953411@o4504644012736512.ingest.sentry.io/4504751752937472",
         sentry::ClientOptions {
@@ -22,6 +29,7 @@ pub fn main() -> iced::Result {
             ..Default::default()
         },
     ));
+    */
 
     App::run(Settings::default())
 }
@@ -29,7 +37,7 @@ pub fn main() -> iced::Result {
 mod activity;
 mod history;
 mod pages;
-mod plan;
+//mod plan;
 mod sql;
 mod utils;
 
@@ -41,9 +49,9 @@ use uuid::Uuid;
 type Conn = Rc<rusqlite::Connection>;
 type ActID = Uuid;
 
+#[derive(Debug)]
 pub struct App {
     conn: Conn,
-    textboxval: String,
     pages: Vec<Box<dyn Page>>,
 }
 
@@ -123,7 +131,6 @@ pub enum MainMessage {
     DeleteActivity(ActID),
     AddActivity { name: String, parent: Option<ActID> },
     PageAddActivity { parent: Option<ActID> },
-    InputChanged(String),
     NewTreeView,
     NewAssign(ActID),
     NewEdit(ActID),
@@ -166,8 +173,6 @@ impl IntoMessage for PageMessage {
 pub enum Message {
     MainMessage(MainMessage),
     PageMessage(PageMessage),
-    InputChanged(String),
-    Todo,
 }
 
 impl Application for App {
@@ -180,7 +185,6 @@ impl Application for App {
         let conn = sql::init();
         let app = Self {
             conn,
-            textboxval: String::new(),
             pages: vec![],
         };
         (app, Command::none())
@@ -195,15 +199,14 @@ impl Application for App {
         match message {
             Message::MainMessage(mainmsg) => match mainmsg {
                 MainMessage::PageAddActivity { parent } => {
-                    let x = Box::new(NewActivity::new(parent));
-                    self.pages.push(x);
+                    self.pages.push(Box::new(NewActivity::new(parent)));
                 }
                 MainMessage::GoBack => {
                     self.pages.pop();
                 }
                 MainMessage::NewEdit(id) => {
-                    let x = Box::new(EditPage::new(self.conn.clone(), id));
-                    self.pages.push(x);
+                    self.pages
+                        .push(Box::new(EditPage::new(self.conn.clone(), id)));
                 }
 
                 MainMessage::SetParent { child, parent } => {
@@ -216,25 +219,22 @@ impl Application for App {
 
                 MainMessage::NewAssign(id) => {
                     let parent = Activity::get_parent(&self.conn, id).map(|act| act.id);
-                    let x = Box::new(Assignments::new(self.conn.clone(), parent));
-                    self.pages.push(x);
+                    self.pages
+                        .push(Box::new(Assignments::new(self.conn.clone(), parent)));
                 }
                 MainMessage::NewTreeView => {
-                    let x = Box::new(TreeView::new(self.conn.clone()));
-                    self.pages.push(x);
+                    self.pages.push(Box::new(TreeView::new(self.conn.clone())));
                 }
                 MainMessage::Refresh => self.refresh(),
                 MainMessage::DeleteActivity(id) => {
                     Activity::delete_activity(&self.conn, id);
                     self.pages.pop();
+                    self.refresh();
                 }
                 MainMessage::AddActivity { name, parent } => {
-                    let activity = Activity::new(&self.conn, name, parent);
+                    let activity = Activity::new(name, parent);
                     sql::new_activity(&self.conn, &activity).unwrap();
                     self.pages.pop();
-                }
-                MainMessage::InputChanged(val) => {
-                    self.textboxval = val;
                 }
                 MainMessage::ChooseParent { child } => {
                     self.pages
@@ -249,8 +249,6 @@ impl Application for App {
                     panic!("ey");
                 }
             }
-            Message::Todo => panic!(),
-            _ => panic!(),
         }
 
         Command::none()

@@ -9,7 +9,7 @@ use crate::IntoMessage;
 use crate::MainMessage;
 use iced::{Alignment, Command, Element, Renderer};
 
-pub trait Page {
+pub trait Page: Debug {
     fn view(&self) -> Element<'static, Message>;
 
     fn update(&mut self, _message: PageMessage) -> Command<Message> {

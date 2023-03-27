@@ -1,25 +1,8 @@
 use crate::activity::Activity;
 use crate::ActID;
 use crate::Conn;
-use uuid::Uuid;
 
 const PATH: &str = "mydb.db";
-
-pub fn get_card_qty(conn: &Conn) -> usize {
-    let statement = "SELECT COUNT(*) FROM activities";
-
-    if conn
-        .query_row(statement, [], |row| row.get::<usize, usize>(0))
-        .unwrap()
-        == 0
-    {
-        return 0;
-    }
-    let statement = "SELECT MAX(id) FROM activities";
-    conn.query_row(statement, [], |row| row.get::<usize, usize>(0))
-        .unwrap()
-        + 1
-}
 
 pub fn get_kid_qty(conn: &Conn, parent: &Option<ActID>) -> usize {
     let statement = match parent {

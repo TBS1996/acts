@@ -34,12 +34,6 @@ impl Session {
         sql::query_map(conn, &statement, |row| Session::try_from(row)).unwrap()
     }
 
-    pub fn total_weighted_time_all_activities(conn: &Conn) -> std::time::Duration {
-        let sessions =
-            sql::query_map(conn, Self::SELECT_QUERY, |row| Session::try_from(row)).unwrap();
-        Self::total_weighted_time_from_sessions(&sessions)
-    }
-
     fn total_weighted_time_from_sessions(sessions: &Vec<Session>) -> std::time::Duration {
         let unix_now = crate::utils::current_unix();
 
@@ -61,7 +55,6 @@ impl Session {
 
     fn get_decay_factor_from_duration(duration: std::time::Duration) -> f32 {
         let days = duration.as_secs_f32() / 86400.;
-
         std::f32::consts::E.powf(0.99f32.ln() * days)
     }
 }

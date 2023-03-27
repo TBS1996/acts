@@ -131,7 +131,7 @@ impl Activity {
         self.text = text;
     }
 
-    pub fn new(conn: &Conn, text: String, parent: Option<ActID>) -> Self {
+    pub fn new(text: String, parent: Option<ActID>) -> Self {
         let id = Uuid::new_v4();
         Self {
             id,

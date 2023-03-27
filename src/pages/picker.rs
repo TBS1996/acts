@@ -107,8 +107,6 @@ impl Picker {
 
                 let single_pad = iced::Element::new(iced::widget::text::Text::new("   "));
 
-                //let elm = iced::Element::new(iced::widget::text::Text::new(kid.display(conn)));
-
                 let edit_button: iced::widget::button::Button<Message> =
                     iced::widget::button(iced::widget::text::Text::new(kid.text)).on_press(
                         MainMessage::SetParent {
