@@ -1,7 +1,7 @@
 use crate::sql;
 use crate::ActID;
 use crate::Conn;
-use uuid::{uuid, Uuid};
+use uuid::{Uuid};
 
 #[derive(Clone, Debug)]
 pub struct Activity {
@@ -90,6 +90,8 @@ impl Activity {
         sql::execute(conn, &statement).unwrap();
     }
 
+
+
     pub fn get_true_assigned(conn: &Conn, mut id: ActID) -> f32 {
         let assigned = Activity::fetch_activity(conn, id).unwrap().assigned as f32;
         let mut multiply = 1.;
@@ -143,13 +145,38 @@ impl Activity {
         }
     }
 
+    fn format_duration(duration: std::time::Duration) -> String {
+    let seconds = duration.as_secs();
+    let days = seconds / 86400;
+    let hours = (seconds % 86400) / 3600;
+    let minutes = (seconds % 3600) / 60;
+    let seconds = seconds % 60;
+
+    let mut result = String::new();
+    if days > 0 {
+        result.push_str(&format!("{}d ", days));
+    }
+    if hours > 0 {
+        result.push_str(&format!("{}h ", hours));
+    }
+    if minutes > 0 {
+        result.push_str(&format!("{}m ", minutes));
+    }
+    if seconds > 0 || result.is_empty() {
+        result.push_str(&format!("{}s", seconds));
+    }
+
+    result
+}
+
     pub fn display_flat(&self, conn: &Conn) -> String {
         format!(
-            "{}:  {:.1}",
+            "{}:  {:.1}, {}/day",
             self.text,
-            Self::calculate_priority(conn, self.id).powf(0.5)
-        )
-    }
+            Self::calculate_priority(conn, self.id).powf(0.5),
+            Self::format_duration(crate::history::Session::average_daily_weighted_time_spent_from_activity(conn, self.id)))}
+                                  
+    
 
     pub fn calculate_priority(conn: &Conn, id: ActID) -> f32 {
         let total = std::time::Duration::from_secs(86400 / 2);

@@ -2,7 +2,6 @@ use crate::activity::Activity;
 use crate::ActID;
 use crate::Conn;
 
-const PATH: &str = "mydb.db";
 
 pub fn get_kid_qty(conn: &Conn, parent: &Option<ActID>) -> usize {
     let statement = match parent {
@@ -34,8 +33,23 @@ pub fn set_assigned(conn: &Conn, id: ActID, assigned: u32) {
     execute(conn, &statement).unwrap();
 }
 
+fn get_db_path() -> std::path::PathBuf{
+
+    let mut file_path = std::path::PathBuf::new();
+
+    if let Some(home_dir) = dirs::home_dir() {
+        file_path.push(home_dir);
+        file_path.push(".local/share/acts/");
+        std::fs::create_dir_all(&file_path).expect("Failed to create acts directory");
+        file_path.push("mydb.db");
+        return file_path
+    } else {panic!()}
+}
+
+
 pub fn init() -> Conn {
-    let conn = std::rc::Rc::new(rusqlite::Connection::open(PATH).unwrap());
+    let path = get_db_path();
+    let conn = std::rc::Rc::new(rusqlite::Connection::open(path).unwrap());
 
     let statement = "CREATE TABLE IF NOT EXISTS activities (
             id TEXT NOT NULL,

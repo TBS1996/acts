@@ -43,12 +43,20 @@ impl Page for EditPage {
             .into_message(),
         );
 
+        let view_note = button("View note").on_press(
+            MainMessage::EditNote {
+                id: self.activity.id,
+            }
+            .into_message(),
+        );
+
         iced::widget::column![
             session_input,
             text_input,
             button("go back to main").on_press(MainMessage::GoBack.into_message()),
             button("Delete").on_press(MainMessage::DeleteActivity(self.activity.id).into_message()),
             child_button,
+            view_note,
         ]
         .padding(20)
         .align_items(Alignment::Center)
@@ -91,13 +99,31 @@ impl EditPage {
     pub fn new_session(&self) {
         let timestamp = crate::utils::current_unix().as_secs();
         let duration = self.session_duration.parse::<f64>().unwrap();
+        let mut id = self.activity.id;
+
         let statement =
             "INSERT INTO history (id, duration, timestamp) VALUES (?1, ?2, ?3)".to_string();
         self.conn
             .execute(
                 &statement,
-                rusqlite::params![self.activity.id.to_string(), duration, timestamp],
+                rusqlite::params![id.to_string(), duration, timestamp],
             )
             .unwrap();
+    
+
+    while let Some(parent) = Activity::get_parent(&self.conn, id){
+        id = parent.id;
+        self.conn
+            .execute(
+                &statement,
+                rusqlite::params![id.to_string(), duration, timestamp],
+            )
+            .unwrap();
+
+    
     }
+    }
+
+        
+
 }

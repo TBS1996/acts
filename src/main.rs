@@ -136,6 +136,7 @@ pub enum MainMessage {
     NewEdit(ActID),
     ChooseParent { child: ActID },
     SetParent { child: ActID, parent: Option<ActID> },
+    EditNote{id: ActID},
     NoOp,
 }
 
@@ -156,6 +157,7 @@ pub enum PageMessage {
 pub trait IntoMessage {
     fn into_message(self) -> Message;
 }
+
 
 impl IntoMessage for MainMessage {
     fn into_message(self) -> Message {
@@ -198,6 +200,29 @@ impl Application for App {
         self.refresh();
         match message {
             Message::MainMessage(mainmsg) => match mainmsg {
+                MainMessage::EditNote{id} => {
+                        let mut file_path = std::path::PathBuf::new();
+
+    if let Some(home_dir) = dirs::home_dir() {
+        file_path.push(home_dir);
+        file_path.push(".local/share/acts/notes");
+    } 
+    // Create the acts directory if it doesn't exist
+    std::fs::create_dir_all(&file_path).expect("Failed to create acts directory");
+
+    file_path.push(id.to_string());
+
+    // Create the file if it doesn't exist
+     let _ = std::fs::OpenOptions::new().write(true).create_new(true).open(&file_path);
+
+    // Open the file with gedit directly
+    if cfg!(target_os = "linux") {
+         let _ = std::process::Command::new("gedit")
+            .arg(file_path)
+            .spawn();
+    }
+                }
+                
                 MainMessage::PageAddActivity { parent } => {
                     self.pages.push(Box::new(NewActivity::new(parent)));
                 }

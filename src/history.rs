@@ -48,6 +48,34 @@ impl Session {
         total_time
     }
 
+    fn average_daily_weighted_time_from_sessions(sessions: &Vec<Session>) -> std::time::Duration {
+    let unix_now = crate::utils::current_unix();
+
+    let mut total_time = std::time::Duration::default();
+    let mut total_decay_factor = 0f32;
+
+    for session in sessions {
+        let diff = std::time::Duration::from_secs(unix_now.as_secs() - session.timestamp);
+        let decay_factor = Self::get_decay_factor_from_duration(diff);
+        let time = session.duration.mul_f32(decay_factor);
+
+        total_time += time;
+        total_decay_factor += decay_factor;
+    }
+
+    if total_decay_factor == 0f32 {
+       return std::time::Duration::default();
+    }
+
+    total_time
+}
+
+pub fn average_daily_weighted_time_spent_from_activity(conn: &Conn, id: ActID) -> std::time::Duration {
+    let sessions = Self::get_history(conn, id);
+    Self::average_daily_weighted_time_from_sessions(&sessions)
+}
+
+
     pub fn total_weighted_time_spent_from_activity(conn: &Conn, id: ActID) -> std::time::Duration {
         let sessions = Self::get_history(conn, id);
         Self::total_weighted_time_from_sessions(&sessions)
